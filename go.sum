@@ -1,0 +1,8 @@
+github.com/mooijtech/btree/v2 v2.0.0 h1:y3BUqGbGCgCcjBxq3UGWvVhxaegzLJzsyyfNQTZREpE=
+github.com/mooijtech/btree/v2 v2.0.0/go.mod h1:X6ygEa2WDnWrBhyHzgXH4VPVWhe7VmvKR5aKRCfFB7Q=
+github.com/mooijtech/go-pst/v4 v4.0.0 h1:v/TX6QdETFaPVEz5M7uqCRv7z4JP+uBL/tsD8w6dKvA=
+github.com/mooijtech/go-pst/v4 v4.0.0/go.mod h1:aAhM4s6WKR5sbG468czukFzwUJPIDRQnjLLih7OtdhQ=
+go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352 h1:CCriYyAfq1Br1aIYettdHZTy8mBTIPo7We18TuO/bak=
+go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352/go.mod h1:SNgMg+EgDFwmvSmLRTNKC5fegJjB7v23qTQ0XLGUNHk=
+golang.org/x/text v0.3.7 h1:olpwvP2KacW1ZWvsR7uQhoyTYvKAupfQrRGBFM352Gk=
+golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
