@@ -12,6 +12,7 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	pst "github.com/mooijtech/go-pst/v4/pkg"
@@ -34,9 +35,8 @@ func main() {
 			return err
 		}
 		if !info.IsDir() {
-			fileName := strings.Split(info.Name(), ".")
-			fileExt := fileName[len(fileName)-1]
-			if fileExt == "pst" {
+			fileExt := filepath.Ext(info.Name())
+			if fileExt == ".pst" {
 				files = append(files, path)
 			}
 		}
@@ -49,12 +49,28 @@ func main() {
 		log.Fatal("Error: input dir is empty")
 	}
 	c := make(chan string)
+	allCerts := make(map[int]string)
 	for _, file := range files {
 		go processPST(file, c)
 	}
 	for i := 0; i < len(files); i++ {
 		cn := <-c
-		fmt.Println(cn)
+		// fmt.Println(cn)
+		cnSlice := strings.Split(cn, ".")
+		certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
+		if err != nil {
+			log.Fatal("Can't parse EDIPI #")
+		}
+		allCerts[certKey] = cn
+	}
+	fmt.Println(allCerts)
+	allCertsStr := ""
+	for _, val := range allCerts {
+		allCertsStr = allCertsStr + val + "\n"
+	}
+	err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
+	if err != nil {
+		log.Fatal("failed to write output to allCerts.txt")
 	}
 }
 
