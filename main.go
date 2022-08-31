@@ -28,7 +28,8 @@ func main() {
 	}
 	inDir := os.Args[1]
 	outDir := os.Args[2]
-	fmt.Println(outDir)
+
+	// get list of pst files to process
 	files := []string{}
 	err := filepath.Walk(inDir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -48,6 +49,10 @@ func main() {
 	if len(files) == 0 {
 		log.Fatal("Error: input dir is empty")
 	}
+
+	// process each pst in a goroutine
+	// get common name back in channel
+	// use a map to dedup with EDIPI as the key
 	c := make(chan string)
 	allCerts := make(map[int]string)
 	for _, file := range files {
@@ -55,7 +60,7 @@ func main() {
 	}
 	for i := 0; i < len(files); i++ {
 		cn := <-c
-		// fmt.Println(cn)
+		// expect cn to be in form LAST.FIRST.MIDDLE.12345678
 		cnSlice := strings.Split(cn, ".")
 		certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
 		if err != nil {
@@ -63,6 +68,7 @@ func main() {
 		}
 		allCerts[certKey] = cn
 	}
+	// write out the allCerts.txt file
 	fmt.Println(allCerts)
 	allCertsStr := ""
 	for _, val := range allCerts {
@@ -74,6 +80,7 @@ func main() {
 	}
 }
 
+// goroutine processes 1 pst
 func processPST(file string, c chan string) {
 	pstFile, err := pst.NewFromFile(file)
 
@@ -90,7 +97,7 @@ func processPST(file string, c chan string) {
 		}
 	}()
 
-	fmt.Printf("Parsing file...")
+	// fmt.Printf("Parsing file...")
 
 	isValidSignature, err := pstFile.IsValidSignature()
 
@@ -104,14 +111,14 @@ func processPST(file string, c chan string) {
 		return
 	}
 
-	contentType, err := pstFile.GetContentType()
+	// contentType, err := pstFile.GetContentType()
 
-	if err != nil {
-		fmt.Printf("Failed to get content type: %s\n", err)
-		return
-	}
+	// if err != nil {
+	// 	fmt.Printf("Failed to get content type: %s\n", err)
+	// 	return
+	// }
 
-	fmt.Printf("Content type: %s\n", contentType)
+	// fmt.Printf("Content type: %s\n", contentType)
 
 	formatType, err := pstFile.GetFormatType()
 
@@ -120,7 +127,7 @@ func processPST(file string, c chan string) {
 		return
 	}
 
-	fmt.Printf("Format type: %s\n", formatType)
+	// fmt.Printf("Format type: %s\n", formatType)
 
 	encryptionType, err := pstFile.GetEncryptionType(formatType)
 
@@ -129,9 +136,9 @@ func processPST(file string, c chan string) {
 		return
 	}
 
-	fmt.Printf("Encryption type: %s\n", encryptionType)
+	// fmt.Printf("Encryption type: %s\n", encryptionType)
 
-	fmt.Printf("Initializing B-Trees...\n")
+	// fmt.Printf("Initializing B-Trees...\n")
 
 	err = pstFile.InitializeBTrees(formatType)
 
@@ -158,7 +165,6 @@ func processPST(file string, c chan string) {
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
 func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, foundSignature *bool, c chan string) error {
-	fmt.Println(*foundSignature)
 	if *foundSignature {
 		return nil
 	}
@@ -169,8 +175,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 	}
 
 	for _, subFolder := range subFolders {
-		fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
-		// *** Custom Code below by McFlip ***
+		// fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
 		if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Sent Items") {
 			continue
 		}
@@ -198,16 +203,8 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if err != nil {
 					return err
 				}
-				// fmt.Println("***Has Attachments***")
-				// subj, _ := msg.GetSubject(&pstFile, formatType, encryptionType)
-				// fmt.Println(subj)
-				// body, _ := msg.GetBody(&pstFile, formatType, encryptionType)
-				// fmt.Println(body)
 				for _, attachment := range myAttachments {
 					mimeType, _ := attachment.GetString(14094)
-					// fmt.Println(mimeType)
-					// fileName, _ := attachment.GetLongFilename()
-					// fmt.Printf("%d: %s \n", i, fileName)
 					if mimeType != "multipart/signed" {
 						continue
 					}
@@ -223,11 +220,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					if err != nil {
 						log.Fatal(err)
 					}
-					mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
+					_, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
 					if err != nil {
 						return err
 					}
-					fmt.Println("mediaType:", mediaType)
 					mr := multipart.NewReader(msg.Body, params["boundary"])
 					for {
 						p, err := mr.NextPart()
@@ -242,7 +238,6 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							log.Fatal(err)
 						}
 						if p.Header.Get("Content-Type") == "application/pkcs7-signature; name=\"smime.p7s\"" {
-							// fmt.Println(slurp)
 							dst := make([]byte, len(slurp))
 							n, err := base64.StdEncoding.Decode(dst, slurp)
 							if err != nil {
@@ -255,7 +250,6 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							}
 							cn := p7m.GetOnlySigner().Subject.CommonName
 							*foundSignature = true
-							// fmt.Println(cn)
 							c <- cn
 						}
 					}
