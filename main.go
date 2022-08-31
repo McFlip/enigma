@@ -48,92 +48,100 @@ func main() {
 	if len(files) == 0 {
 		log.Fatal("Error: input dir is empty")
 	}
+	c := make(chan string)
 	for _, file := range files {
+		go processPST(file, c)
+	}
+	for i := 0; i < len(files); i++ {
+		cn := <-c
+		fmt.Println(cn)
+	}
+}
 
-		pstFile, err := pst.NewFromFile(file)
+func processPST(file string, c chan string) {
+	pstFile, err := pst.NewFromFile(file)
 
-		if err != nil {
-			fmt.Printf("Failed to create PST file: %s\n", err)
-			return
-		}
+	if err != nil {
+		fmt.Printf("Failed to create PST file: %s\n", err)
+		return
+	}
 
-		defer func() {
-			err := pstFile.Close()
-
-			if err != nil {
-				fmt.Printf("Failed to close PST file: %s", err)
-			}
-		}()
-
-		fmt.Printf("Parsing file...")
-
-		isValidSignature, err := pstFile.IsValidSignature()
-
-		if err != nil {
-			fmt.Printf("Failed to read signature: %s\n", err)
-			return
-		}
-
-		if !isValidSignature {
-			fmt.Printf("Invalid file signature.\n")
-			return
-		}
-
-		contentType, err := pstFile.GetContentType()
+	defer func() {
+		err := pstFile.Close()
 
 		if err != nil {
-			fmt.Printf("Failed to get content type: %s\n", err)
-			return
+			fmt.Printf("Failed to close PST file: %s", err)
 		}
+	}()
 
-		fmt.Printf("Content type: %s\n", contentType)
+	fmt.Printf("Parsing file...")
 
-		formatType, err := pstFile.GetFormatType()
+	isValidSignature, err := pstFile.IsValidSignature()
 
-		if err != nil {
-			fmt.Printf("Failed to get format type: %s\n", err)
-			return
-		}
+	if err != nil {
+		fmt.Printf("Failed to read signature: %s\n", err)
+		return
+	}
 
-		fmt.Printf("Format type: %s\n", formatType)
+	if !isValidSignature {
+		fmt.Printf("Invalid file signature.\n")
+		return
+	}
 
-		encryptionType, err := pstFile.GetEncryptionType(formatType)
+	contentType, err := pstFile.GetContentType()
 
-		if err != nil {
-			fmt.Printf("Failed to get encryption type: %s\n", err)
-			return
-		}
+	if err != nil {
+		fmt.Printf("Failed to get content type: %s\n", err)
+		return
+	}
 
-		fmt.Printf("Encryption type: %s\n", encryptionType)
+	fmt.Printf("Content type: %s\n", contentType)
 
-		fmt.Printf("Initializing B-Trees...\n")
+	formatType, err := pstFile.GetFormatType()
 
-		err = pstFile.InitializeBTrees(formatType)
+	if err != nil {
+		fmt.Printf("Failed to get format type: %s\n", err)
+		return
+	}
 
-		if err != nil {
-			fmt.Printf("Failed to initialize node and block b-tree.\n")
-			return
-		}
+	fmt.Printf("Format type: %s\n", formatType)
 
-		rootFolder, err := pstFile.GetRootFolder(formatType, encryptionType)
+	encryptionType, err := pstFile.GetEncryptionType(formatType)
 
-		if err != nil {
-			fmt.Printf("Failed to get root folder: %s\n", err)
-			return
-		}
+	if err != nil {
+		fmt.Printf("Failed to get encryption type: %s\n", err)
+		return
+	}
 
-		foundSignature := false
-		err = GetSubFolders(pstFile, rootFolder, formatType, encryptionType, &foundSignature)
+	fmt.Printf("Encryption type: %s\n", encryptionType)
 
-		if err != nil {
-			fmt.Printf("Failed to get sub-folders: %s\n", err)
-			return
-		}
+	fmt.Printf("Initializing B-Trees...\n")
+
+	err = pstFile.InitializeBTrees(formatType)
+
+	if err != nil {
+		fmt.Printf("Failed to initialize node and block b-tree.\n")
+		return
+	}
+
+	rootFolder, err := pstFile.GetRootFolder(formatType, encryptionType)
+
+	if err != nil {
+		fmt.Printf("Failed to get root folder: %s\n", err)
+		return
+	}
+
+	foundSignature := false
+	err = GetSubFolders(pstFile, rootFolder, formatType, encryptionType, &foundSignature, c)
+
+	if err != nil {
+		fmt.Printf("Failed to get sub-folders: %s\n", err)
+		return
 	}
 }
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
-func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, foundSignature *bool) error {
+func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, foundSignature *bool, c chan string) error {
 	fmt.Println(*foundSignature)
 	if *foundSignature {
 		return nil
@@ -230,8 +238,9 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 								log.Fatal(err)
 							}
 							cn := p7m.GetOnlySigner().Subject.CommonName
-							fmt.Println(cn)
 							*foundSignature = true
+							// fmt.Println(cn)
+							c <- cn
 						}
 					}
 				}
@@ -239,14 +248,11 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 		}
 
 		if !*foundSignature {
-
-			err = GetSubFolders(pstFile, subFolder, formatType, encryptionType, foundSignature)
-
+			err = GetSubFolders(pstFile, subFolder, formatType, encryptionType, foundSignature, c)
 			if err != nil {
 				return err
 			}
 		}
-
 	}
 
 	return nil
