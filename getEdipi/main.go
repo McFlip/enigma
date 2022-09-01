@@ -86,6 +86,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to create PST file: %s\n", err)
+		c <- ""
 		return
 	}
 
@@ -103,11 +104,13 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to read signature: %s\n", err)
+		c <- ""
 		return
 	}
 
 	if !isValidSignature {
 		fmt.Printf("Invalid file signature.\n")
+		c <- ""
 		return
 	}
 
@@ -124,6 +127,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get format type: %s\n", err)
+		c <- ""
 		return
 	}
 
@@ -133,6 +137,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get encryption type: %s\n", err)
+		c <- ""
 		return
 	}
 
@@ -144,6 +149,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to initialize node and block b-tree.\n")
+		c <- ""
 		return
 	}
 
@@ -151,6 +157,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get root folder: %s\n", err)
+		c <- ""
 		return
 	}
 
@@ -159,6 +166,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get sub-folders: %s\n", err)
+		c <- ""
 		return
 	}
 }
