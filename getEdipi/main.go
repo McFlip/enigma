@@ -1,3 +1,4 @@
+// Parse EDIPI numbers from Common Name field in signed emails
 package main
 
 import (
@@ -113,15 +114,6 @@ func processPST(file string, c chan string) {
 		c <- ""
 		return
 	}
-
-	// contentType, err := pstFile.GetContentType()
-
-	// if err != nil {
-	// 	fmt.Printf("Failed to get content type: %s\n", err)
-	// 	return
-	// }
-
-	// fmt.Printf("Content type: %s\n", contentType)
 
 	formatType, err := pstFile.GetFormatType()
 
