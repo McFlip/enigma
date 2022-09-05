@@ -19,22 +19,29 @@ import (
 	"go.mozilla.org/pkcs7"
 )
 
+type certKeyPair struct {
+	cert    *x509.Certificate
+	privKey *rsa.PrivateKey
+}
+
 func main() {
-	if len(os.Args) != 5 {
+	if len(os.Args) != 6 {
 		fmt.Println("Usage: decipher inPstDir inKeyDir inPW outDir")
 		fmt.Println("<inPstDir>: source directory of input PSTs containing encrypted email (Cypher Text)")
-		fmt.Println("<inKeyDir>: source directory of input PKCS8 keys")
+		fmt.Println("<inCertDir>: source directory of recipient x509 certs")
+		fmt.Println("<inKeyDir>: source directory of input PKCS8 private keys to match x509 certs")
 		fmt.Println("<inPW>: the password you set as the outPW in getKeys")
 		fmt.Println("<outDir>: Plain Text (PT) email msgs as well as exceptions report")
 		os.Exit(1)
 	}
 	inPstDir := os.Args[1]
-	inKeyDir := os.Args[2]
-	inPW := os.Args[3]
-	// outDir := os.Args[4]
+	inCertDir := os.Args[2]
+	inKeyDir := os.Args[3]
+	inPW := os.Args[4]
+	// outDir := os.Args[5]
 	pstExceptions := []string{"PST File,Error"}
 	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError"}
-	keyMap := make(map[string]*rsa.PrivateKey)
+	certKeyPairs := make([]certKeyPair, 0)
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -70,11 +77,23 @@ func main() {
 				return err
 			}
 			// key was saved in the form "serial.key"
-			i := strings.Split(d.Name(), ".")[0]
+			serial := strings.Split(d.Name(), ".")[0]
 			if err != nil {
 				return err
 			}
-			keyMap[i] = key
+			certBs, err := os.ReadFile(filepath.Join(inCertDir, serial+".cert"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			myCert, err := x509.ParseCertificate(certBs)
+			if err != nil {
+				log.Fatal(err)
+			}
+			myPair := certKeyPair{
+				cert:    myCert,
+				privKey: key,
+			}
+			certKeyPairs = append(certKeyPairs, myPair)
 			return nil
 		}
 		return nil
@@ -86,7 +105,7 @@ func main() {
 	// For each PST, Walk the B-Tree and handle each subtree as a goroutine
 
 	for _, file := range pstFiles {
-		err := processPST(file, keyMap)
+		err := processPST(file, certKeyPairs)
 		if err != nil {
 			pstException := fmt.Sprintf("%s,%s", file, err)
 			pstExceptions = append(pstExceptions, pstException)
@@ -98,7 +117,7 @@ func main() {
 }
 
 // processes 1 pst
-func processPST(file string, keyMap map[string]*rsa.PrivateKey) error {
+func processPST(file string, certKeyPairs []certKeyPair) error {
 	pstFile, err := pst.NewFromFile(file)
 
 	if err != nil {
@@ -170,7 +189,7 @@ func processPST(file string, keyMap map[string]*rsa.PrivateKey) error {
 	cDone := make(chan string)
 	cErr := make(chan string)
 	numSubFolders := 0
-	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, file, keyMap, cSub, cDone, cErr)
+	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, file, certKeyPairs, cSub, cDone, cErr)
 
 	for {
 		select {
@@ -194,7 +213,7 @@ func processPST(file string, keyMap map[string]*rsa.PrivateKey) error {
 }
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
-func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, keyMap map[string]*rsa.PrivateKey, cSub chan string, cDone chan string, cErr chan string) {
+func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, certKeyPairs []certKeyPair, cSub chan string, cDone chan string, cErr chan string) {
 	subFolders, err := pstFile.GetSubFolders(folder, formatType, encryptionType)
 
 	if err != nil {
@@ -268,13 +287,6 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					}
 
 					// os.WriteFile("smime.p7m", attachBytes, 0666)
-					// dst := make([]byte, len(attachBytes))
-					// n, err := base64.StdEncoding.Decode(dst, attachBytes)
-					// if err != nil {
-					// 	cErr <- err.Error()
-					// 	return
-					// }
-					// dst = dst[:n]
 					p7m, err := pkcs7.Parse(attachBytes)
 					if err != nil {
 						fmt.Println(err)
@@ -282,21 +294,19 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						return
 					}
 					fmt.Println("$$$$$$$$$$$$$$$$$$")
-					// fmt.Println(p7m.Content)
-					myKey := keyMap["12c3905b55296e401270c0ceb18b5ba660db9a1f"]
-					certBs, err := os.ReadFile("../testdata/keyIn/12c3905b55296e401270c0ceb18b5ba660db9a1f.cert")
-					if err != nil {
-						log.Fatal(err)
-					}
-					myCert, err := x509.ParseCertificate(certBs)
-					if err != nil {
-						log.Fatal(err)
-					}
-					pt, err := p7m.Decrypt(myCert, myKey)
-					if err != nil {
-						log.Fatal(err)
+					var pt []byte
+					for i, certKeyPair := range certKeyPairs {
+						fmt.Println(certKeyPair)
+						pt, err = p7m.Decrypt(certKeyPair.cert, certKeyPair.privKey)
+						if err != nil {
+							if i == len(certKeyPairs)-1 {
+								cErr <- "No matching cert-key pair"
+								log.Fatal(err)
+							}
+						}
 					}
 					fmt.Println(string(pt))
+					// outMsg := multipart.NewWriter()
 					// msg, err := mail.ReadMessage(bytes.NewReader(attachBytes))
 					// if err != nil {
 					// 	log.Fatal(err)
@@ -339,7 +349,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 		}
 		if subFolder.HasSubFolders {
 			cSub <- "Dive!"
-			go GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, keyMap, cSub, cDone, cErr)
+			go GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, certKeyPairs, cSub, cDone, cErr)
 		} else {
 			fmt.Println("Leaf node", subFolder.DisplayName)
 		}
