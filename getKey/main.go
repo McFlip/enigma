@@ -47,4 +47,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Can't save key to outDir")
 	}
+	err = os.WriteFile(filepath.Join(outDir, serial+".cert"), cert.Raw, 0550)
+	if err != nil {
+		log.Fatal("Can't save cert to outDir")
+	}
 }
