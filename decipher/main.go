@@ -5,13 +5,16 @@
 package main
 
 import (
+	"crypto/rsa"
 	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	pst "github.com/mooijtech/go-pst/v4/pkg"
+	"github.com/youmark/pkcs8"
 )
 
 func main() {
@@ -24,11 +27,12 @@ func main() {
 		os.Exit(1)
 	}
 	inPstDir := os.Args[1]
-	// inKeyDir := os.Args[2]
-	// inPW := os.Args[3]
+	inKeyDir := os.Args[2]
+	inPW := os.Args[3]
 	// outDir := os.Args[4]
 	pstExceptions := []string{"PST File,Error"}
 	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError"}
+	keyMap := make(map[string]*rsa.PrivateKey)
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -52,6 +56,30 @@ func main() {
 	}
 
 	// load keys
+	err = filepath.WalkDir(inKeyDir, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() && filepath.Ext(d.Name()) == ".key" {
+			keyBs, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			// unmarshal key
+			key, err := pkcs8.ParsePKCS8PrivateKey(keyBs, []byte(inPW))
+			if err != nil {
+				return err
+			}
+			// key was saved in the form "serial.key"
+			i := strings.Split(d.Name(), ".")[0]
+			if err != nil {
+				return err
+			}
+			keyMap[i] = key.(*rsa.PrivateKey)
+			return nil
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatal("Failed to load keys")
+	}
 
 	// For each PST, Walk the B-Tree and handle each subtree as a goroutine
 
@@ -198,7 +226,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				attachStr := ""
 				for _, attachment := range attachments {
 					filename, _ := attachment.GetLongFilename()
-					attachStr = attachStr + ";" + filename
+					attachStr = attachStr + filename + ";"
 				}
 				logStr := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t", target, from, to, cc, bcc, subj, date, msgId, attachStr)
 				hasAttachments, err := msg.HasAttachments()
@@ -223,6 +251,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						continue
 					}
 					fmt.Println("$$$$$$$$$$$$$$$$$$")
+					fmt.Println(logStr)
 					// attachStream, err := attachment.GetInputStream(&pstFile, formatType, encryptionType)
 					// if err != nil {
 					// 	return err
