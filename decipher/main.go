@@ -38,7 +38,7 @@ func main() {
 	inCertDir := os.Args[2]
 	inKeyDir := os.Args[3]
 	inPW := os.Args[4]
-	// outDir := os.Args[5]
+	outDir := os.Args[5]
 	pstExceptions := []string{"PST File,Error"}
 	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError"}
 	certKeyPairs := make([]certKeyPair, 0)
@@ -105,7 +105,7 @@ func main() {
 	// For each PST, Walk the B-Tree and handle each subtree as a goroutine
 
 	for _, file := range pstFiles {
-		err := processPST(file, certKeyPairs)
+		err := processPST(file, outDir, certKeyPairs)
 		if err != nil {
 			pstException := fmt.Sprintf("%s,%s", file, err)
 			pstExceptions = append(pstExceptions, pstException)
@@ -116,8 +116,10 @@ func main() {
 	fmt.Println(msgExceptions)
 }
 
+// TODO: Bust out other funcs into separate files
+
 // processes 1 pst
-func processPST(file string, certKeyPairs []certKeyPair) error {
+func processPST(file string, outDir string, certKeyPairs []certKeyPair) error {
 	pstFile, err := pst.NewFromFile(file)
 
 	if err != nil {
@@ -189,7 +191,7 @@ func processPST(file string, certKeyPairs []certKeyPair) error {
 	cDone := make(chan string)
 	cErr := make(chan string)
 	numSubFolders := 0
-	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, file, certKeyPairs, cSub, cDone, cErr)
+	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, file, outDir, certKeyPairs, cSub, cDone, cErr)
 
 	for {
 		select {
@@ -199,10 +201,10 @@ func processPST(file string, certKeyPairs []certKeyPair) error {
 		case done := <-cDone:
 			numSubFolders--
 			fmt.Println(done)
-		// case err := <-cErr:
-		// 	fmt.Println(err)
-		case <-cErr:
-			fmt.Println("Fubar")
+		case err := <-cErr:
+			fmt.Println(err)
+			// case <-cErr:
+			// 	fmt.Println("Fubar")
 		}
 		if numSubFolders < 0 {
 			break
@@ -213,7 +215,7 @@ func processPST(file string, certKeyPairs []certKeyPair) error {
 }
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
-func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, certKeyPairs []certKeyPair, cSub chan string, cDone chan string, cErr chan string) {
+func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, outPath string, certKeyPairs []certKeyPair, cSub chan string, cDone chan string, cErr chan string) {
 	subFolders, err := pstFile.GetSubFolders(folder, formatType, encryptionType)
 
 	if err != nil {
@@ -256,7 +258,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if err != nil {
 					logStr = logStr + err.Error() + "\n"
 					cErr <- logStr
-					return
+					continue
 				}
 				if !hasAttachments {
 					continue
@@ -265,9 +267,11 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if err != nil {
 					logStr = logStr + err.Error() + "\n"
 					cErr <- logStr
-					return
+					continue
 				}
 				for _, attachment := range myAttachments {
+					// TODO: handle opaque signed email
+					// TODO: check for special case of PT parent w/ CT children
 					mimeType, _ := attachment.GetString(14094)
 					fmt.Println(mimeType)
 					if mimeType != "application/pkcs7-mime" {
@@ -278,12 +282,12 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					attachStream, err := attachment.GetInputStream(&pstFile, formatType, encryptionType)
 					if err != nil {
 						cErr <- err.Error()
-						return
+						continue
 					}
 					attachBytes, err := attachStream.ReadCompletely()
 					if err != nil {
 						cErr <- err.Error()
-						return
+						continue
 					}
 
 					// os.WriteFile("smime.p7m", attachBytes, 0666)
@@ -291,65 +295,60 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					if err != nil {
 						fmt.Println(err)
 						cErr <- err.Error()
-						return
+						continue
 					}
 					fmt.Println("$$$$$$$$$$$$$$$$$$")
 					var pt []byte
 					for i, certKeyPair := range certKeyPairs {
-						fmt.Println(certKeyPair)
+						// fmt.Println(certKeyPair)
 						pt, err = p7m.Decrypt(certKeyPair.cert, certKeyPair.privKey)
 						if err != nil {
+							fmt.Println(err)
 							if i == len(certKeyPairs)-1 {
 								cErr <- "No matching cert-key pair"
-								log.Fatal(err)
+								continue
 							}
 						}
 					}
-					fmt.Println(string(pt))
-					// outMsg := multipart.NewWriter()
-					// msg, err := mail.ReadMessage(bytes.NewReader(attachBytes))
-					// if err != nil {
-					// 	log.Fatal(err)
-					// }
-					// _, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
-					// if err != nil {
-					// 	return err
-					// }
-					// mr := multipart.NewReader(msg.Body, params["boundary"])
-					// for {
-					// 	p, err := mr.NextPart()
-					// 	if err == io.EOF {
-					// 		return nil
-					// 	}
-					// 	if err != nil {
-					// 		log.Fatal(err)
-					// 	}
-					// 	slurp, err := io.ReadAll(p)
-					// 	if err != nil {
-					// 		log.Fatal(err)
-					// 	}
-					// 	if p.Header.Get("Content-Type") == "application/pkcs7-signature; name=\"smime.p7s\"" {
-					// 		dst := make([]byte, len(slurp))
-					// 		n, err := base64.StdEncoding.Decode(dst, slurp)
-					// 		if err != nil {
-					// 			log.Fatal(err)
-					// 		}
-					// 		dst = dst[:n]
-					// 		p7m, err := pkcs7.Parse(dst)
-					// 		if err != nil {
-					// 			log.Fatal(err)
-					// 		}
-					// 		cn := p7m.GetOnlySigner().Subject.CommonName
-					// 		*foundSignature = true
-					// 		c <- cn
-					// 	}
-					// }
+					// fmt.Println(string(pt))
+					header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
+					if err != nil {
+						cErr <- "Failed to get msg headers"
+						continue
+					}
+					outMsg, _, found := strings.Cut(header, "MIME-Version")
+					if err != nil || !found {
+						cErr <- "Failed to truncate headers"
+						continue
+					}
+					outMsg = outMsg + string(pt)
+					// TODO: Check if we need to drill down - encrypted envelope inside another
+					// TODO: re-assemble multipart tree if necessary
+					outPath = filepath.Join(outPath, subFolder.DisplayName)
+					outPath = strings.ReplaceAll(outPath, " ", "_")
+					fmt.Println(outPath)
+					err = os.MkdirAll(outPath, 0777)
+					if err != nil {
+						fmt.Println(err)
+						cErr <- "Failed to make output dir"
+						continue
+					}
+					// TODO: loop through outPath and find next available name
+					outPath = filepath.Join(outPath, "1.eml")
+					fmt.Println(outPath)
+					err = os.WriteFile(outPath, []byte(outMsg), 0666)
+					if err != nil {
+						fmt.Println(err)
+						cErr <- "Failed to write out .eml file"
+						continue
+					}
 				}
 			}
 		}
 		if subFolder.HasSubFolders {
 			cSub <- "Dive!"
-			go GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, certKeyPairs, cSub, cDone, cErr)
+			outPath = filepath.Join(outPath, subFolder.DisplayName)
+			go GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, outPath, certKeyPairs, cSub, cDone, cErr)
 		} else {
 			fmt.Println("Leaf node", subFolder.DisplayName)
 		}
