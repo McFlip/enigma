@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	pst "github.com/mooijtech/go-pst/v4/pkg"
 )
@@ -79,7 +80,9 @@ func processPST(file string, outDir string, certKeyPairs []certKeyPair) error {
 	cDone := make(chan string)
 	cErr := make(chan string)
 	numSubFolders := 0
-	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, file, outDir, certKeyPairs, cSub, cDone, cErr)
+	target := filepath.Base(file)
+	outPath := filepath.Join(outDir, target)
+	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, target, outPath, certKeyPairs, cSub, cDone, cErr)
 
 	for {
 		select {
