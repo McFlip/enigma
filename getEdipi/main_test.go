@@ -3,7 +3,7 @@ package main
 import "testing"
 
 func TestProcessPST(t *testing.T) {
-	testFile := "../testdata/TEST.pst"
+	testFile := "../testdata/pstIn/TEST.pst"
 	c := make(chan string)
 	expected := "LAST.FIRST.MIDDLE.12345678"
 	go processPST(testFile, c)
