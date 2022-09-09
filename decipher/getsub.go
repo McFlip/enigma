@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	pst "github.com/mooijtech/go-pst/v4/pkg"
-	"go.mozilla.org/pkcs7"
 )
 
 func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, outPath string, certKeyPairs []certKeyPair, cSub chan string, cDone chan string, cErr chan string) {
@@ -87,28 +86,11 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						cErr <- err.Error()
 						continue
 					}
-
-					// os.WriteFile("smime.p7m", attachBytes, 0666)
-					p7m, err := pkcs7.Parse(attachBytes)
+					// decipher
+					pt, err := decipher(attachBytes, certKeyPairs, cErr)
 					if err != nil {
-						fmt.Println(err)
-						cErr <- err.Error()
 						continue
 					}
-					fmt.Println("$$$$$$$$$$$$$$$$$$")
-					var pt []byte
-					for i, certKeyPair := range certKeyPairs {
-						// fmt.Println(certKeyPair)
-						pt, err = p7m.Decrypt(certKeyPair.cert, certKeyPair.privKey)
-						if err != nil {
-							fmt.Println(err)
-							if i == len(certKeyPairs)-1 {
-								cErr <- "No matching cert-key pair"
-								continue
-							}
-						}
-					}
-					// fmt.Println(string(pt))
 					header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
 					if err != nil {
 						cErr <- "Failed to get msg headers"
