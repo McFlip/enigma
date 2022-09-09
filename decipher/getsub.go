@@ -23,6 +23,8 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 	for _, subFolder := range subFolders {
 		// cSub <- "Dive!"
 		fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
+		// numbered filenames for output
+		fileNum := 1
 
 		messages, err := pstFile.GetMessages(subFolder, formatType, encryptionType)
 
@@ -112,27 +114,24 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						cErr <- "Failed to get msg headers"
 						continue
 					}
-					outMsg, _, found := strings.Cut(header, "MIME-Version")
-					if err != nil || !found {
-						cErr <- "Failed to truncate headers"
-						continue
-					}
-					outMsg = outMsg + string(pt)
+					// Filter out Content-Type and Content-Transfer-Encoding headers
+					filteredHeaders := filterHeaders(header)
+					outMsg := filteredHeaders + string(pt)
 					// TODO: Check if we need to drill down - encrypted envelope inside another
 					// TODO: re-assemble multipart tree if necessary
-					outPath = filepath.Join(outPath, subFolder.DisplayName)
-					outPath = strings.ReplaceAll(outPath, " ", "_")
-					fmt.Println(outPath)
-					err = os.MkdirAll(outPath, 0777)
+					basePath := filepath.Join(outPath, subFolder.DisplayName)
+					basePath = strings.ReplaceAll(basePath, " ", "_")
+					fmt.Println(basePath)
+					err = os.MkdirAll(basePath, 0777)
 					if err != nil {
 						fmt.Println(err)
 						cErr <- "Failed to make output dir"
 						continue
 					}
-					// TODO: loop through outPath and find next available name
-					outPath = filepath.Join(outPath, "1.eml")
-					fmt.Println(outPath)
-					err = os.WriteFile(outPath, []byte(outMsg), 0666)
+					fullPath := filepath.Join(basePath, fmt.Sprint(fileNum)+".eml")
+					fileNum++
+					fmt.Println(fullPath)
+					err = os.WriteFile(fullPath, []byte(outMsg), 0666)
 					if err != nil {
 						fmt.Println(err)
 						cErr <- "Failed to write out .eml file"
