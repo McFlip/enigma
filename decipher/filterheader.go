@@ -10,6 +10,9 @@ import (
 )
 
 func filterHeaders(headers string) string {
+	// fmt.Println("@@@@@@@@@@@@@@@@@@@@@")
+	// fmt.Println(headers)
+	// fmt.Println("@@@@@@@@@@@@@@@@@@@@@")
 	// null bytes in MS Outlook string encoding breaks strings funcs & regexp
 	headersBS := []byte(headers)
 	headersBS = bytes.ReplaceAll(headersBS, []byte{00}, []byte{})
