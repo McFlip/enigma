@@ -199,6 +199,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if !hasAttachments {
 					continue
 				}
+				from, err := msg.GetFrom(&pstFile, formatType, encryptionType)
+				if err != nil {
+					return err
+				}
 				myAttachments, err := msg.GetAttachments(&pstFile, formatType, encryptionType)
 				if err != nil {
 					return err
@@ -249,8 +253,32 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 								log.Fatal(err)
 							}
 							cn := p7m.GetOnlySigner().Subject.CommonName
+							cnSplit := strings.Split(cn, ".")
+							lName := cnSplit[0]
+							fName := cnSplit[1]
+							mName := ""
+							edipi := cnSplit[len(cnSplit)-1]
+							if len(cnSplit) == 4 {
+								mName = cnSplit[2]
+							}
+							// email := strings.Join(p7m.GetOnlySigner().EmailAddresses, ";")  // just using "From" header
+							upn := strings.Join(p7m.GetOnlySigner().DNSNames, ";")
+							if len(upn) == 0 {
+								upn = fmt.Sprintf("%s@mil", edipi)
+							}
+							serial := p7m.GetOnlySigner().SerialNumber
+							issuer := p7m.GetOnlySigner().Issuer
+							ca := p7m.GetOnlySigner().Issuer.CommonName
+							fmtName := fmt.Sprintf("Name: %s, %s %s", lName, fName, mName)
+							fmtEmail := fmt.Sprintf("Email: %s", from)
+							fmtEdiPI := fmt.Sprintf("EDIPI: %s", edipi)
+							fmtUpn := fmt.Sprintf("Principle Name: %s", upn)
+							fmtSerial := fmt.Sprintf("Serial: %x", serial)
+							fmtIssuer := fmt.Sprintf("Issuer: %s", issuer)
+							fmtCA := fmt.Sprintf("Certificate Authority: %s", ca)
+							cert := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s", fmtName, fmtEmail, fmtEdiPI, fmtUpn, fmtSerial, fmtIssuer, fmtCA)
 							*foundSignature = true
-							c <- cn
+							c <- cert
 						}
 					}
 				}
