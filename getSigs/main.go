@@ -13,8 +13,9 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
+
+	// "strconv"
 
 	pst "github.com/mooijtech/go-pst/v4/pkg"
 	pkcs7 "go.mozilla.org/pkcs7"
@@ -28,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 	inDir := os.Args[1]
-	outDir := os.Args[2]
+	// outDir := os.Args[2]
 
 	// get list of pst files to process
 	files := []string{}
@@ -55,30 +56,32 @@ func main() {
 	// get common name back in channel
 	// use a map to dedup with EDIPI as the key
 	c := make(chan string)
-	allCerts := make(map[int]string)
+	// allCerts := make(map[int]string)
+	allCerts := ""
 	for _, file := range files {
 		go processPST(file, c)
 	}
 	for i := 0; i < len(files); i++ {
 		cn := <-c
+		allCerts = allCerts + cn
 		// expect cn to be in form LAST.FIRST.MIDDLE.12345678
-		cnSlice := strings.Split(cn, ".")
-		certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
-		if err != nil {
-			log.Fatal("Can't parse EDIPI #")
-		}
-		allCerts[certKey] = cn
+		// cnSlice := strings.Split(cn, ".")
+		// certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
+		// if err != nil {
+		// 	log.Fatal("Can't parse EDIPI #")
+		// }
+		// allCerts[certKey] = cn
 	}
 	// write out the allCerts.txt file
 	fmt.Println(allCerts)
-	allCertsStr := ""
-	for _, val := range allCerts {
-		allCertsStr = allCertsStr + val + "\n"
-	}
-	err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
-	if err != nil {
-		log.Fatal("failed to write output to allCerts.txt")
-	}
+	// allCertsStr := ""
+	// for _, val := range allCerts {
+	// 	allCertsStr = allCertsStr + val + "\n"
+	// }
+	// err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
+	// if err != nil {
+	// 	log.Fatal("failed to write output to allCerts.txt")
+	// }
 }
 
 // goroutine processes 1 pst
@@ -199,6 +202,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if !hasAttachments {
 					continue
 				}
+				// from, err := msg.GetFrom(&pstFile, formatType, encryptionType)
+				// if err != nil {
+				// 	return err
+				// }
 				myAttachments, err := msg.GetAttachments(&pstFile, formatType, encryptionType)
 				if err != nil {
 					return err
@@ -249,8 +256,33 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 								log.Fatal(err)
 							}
 							cn := p7m.GetOnlySigner().Subject.CommonName
-							*foundSignature = true
-							c <- cn
+							cnSplit := strings.Split(cn, ".")
+							lName := cnSplit[0]
+							fName := cnSplit[1]
+							mName := ""
+							edipi := cnSplit[len(cnSplit)-1]
+							if len(cnSplit) == 4 {
+								mName = cnSplit[2]
+							}
+							email := strings.Join(p7m.GetOnlySigner().EmailAddresses, ";") // just using "From" header
+							upn := strings.Join(p7m.GetOnlySigner().DNSNames, ";")
+							if len(upn) == 0 {
+								upn = fmt.Sprintf("%s@mil", edipi)
+							}
+							serial := p7m.GetOnlySigner().SerialNumber
+							issuer := p7m.GetOnlySigner().Issuer
+							ca := p7m.GetOnlySigner().Issuer.CommonName
+							fmtName := fmt.Sprintf("Name: %s, %s %s", lName, fName, mName)
+							// fmtEmail := fmt.Sprintf("Email: %s", from)
+							fmtEmail := fmt.Sprintf("Email: %s", email)
+							fmtEdiPI := fmt.Sprintf("EDIPI: %s", edipi)
+							fmtUpn := fmt.Sprintf("Principle Name: %s", upn)
+							fmtSerial := fmt.Sprintf("Serial: %x", serial)
+							fmtIssuer := fmt.Sprintf("Issuer: %s", issuer)
+							fmtCA := fmt.Sprintf("Certificate Authority: %s", ca)
+							cert := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s", fmtName, fmtEmail, fmtEdiPI, fmtUpn, fmtSerial, fmtIssuer, fmtCA)
+							// *foundSignature = true
+							c <- cert
 						}
 					}
 				}
