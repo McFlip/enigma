@@ -61,9 +61,6 @@ func main() {
 	}
 	for i := 0; i < len(files); i++ {
 		cn := <-c
-		if cn == "" {
-			continue
-		}
 		// expect cn to be in form LAST.FIRST.MIDDLE.12345678
 		cnSlice := strings.Split(cn, ".")
 		certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
@@ -73,9 +70,9 @@ func main() {
 		allCerts[certKey] = cn
 	}
 	// write out the allCerts.txt file
+	fmt.Println(allCerts)
 	allCertsStr := ""
 	for _, val := range allCerts {
-		fmt.Println(val)
 		allCertsStr = allCertsStr + val + "\n"
 	}
 	err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
@@ -164,11 +161,6 @@ func processPST(file string, c chan string) {
 		c <- ""
 		return
 	}
-	// check for successfuly walked PST but didn't find anything
-	if !foundSignature {
-		fmt.Println("No sigs found", file)
-		c <- ""
-	}
 }
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
@@ -183,15 +175,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 	}
 
 	for _, subFolder := range subFolders {
-		if *foundSignature {
-			return nil
-		}
 		// fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
-		// Optimiztion: Drill down to "Sent Items"
-		// Too much variation in PST structures - commenting out
-		// if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Top of Information Store" || subFolder.DisplayName == "Sent Items" || strings.Contains(subFolder.DisplayName, "(Primary)")) || strings.Contains(subFolder.DisplayName, "(MainArchive)") {
-		// 	continue
-		// }
+		if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Sent Items") {
+			continue
+		}
 
 		messages, err := pstFile.GetMessages(subFolder, formatType, encryptionType)
 
@@ -241,7 +228,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					for {
 						p, err := mr.NextPart()
 						if err == io.EOF {
-							break
+							return nil
 						}
 						if err != nil {
 							log.Fatal(err)
@@ -250,8 +237,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						if err != nil {
 							log.Fatal(err)
 						}
-						// can be application/pkcs7-signature, but can also be x-application/... or application/x-pkcs7-sig...
-						if strings.Contains(p.Header.Get("Content-Type"), "pkcs7-signature") {
+						if p.Header.Get("Content-Type") == "application/pkcs7-signature; name=\"smime.p7s\"" {
 							dst := make([]byte, len(slurp))
 							n, err := base64.StdEncoding.Decode(dst, slurp)
 							if err != nil {
@@ -265,13 +251,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							cn := p7m.GetOnlySigner().Subject.CommonName
 							*foundSignature = true
 							c <- cn
-							return nil
 						}
 					}
 				}
 			}
-			// exhausted all messages and still no sig
-			c <- ""
 		}
 
 		if !*foundSignature {
@@ -281,5 +264,6 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 			}
 		}
 	}
+
 	return nil
 }
