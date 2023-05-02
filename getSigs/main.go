@@ -61,16 +61,13 @@ func main() {
 	for _, file := range files {
 		go processPST(file, c)
 	}
-	for i := 0; i < len(files); i++ {
-		cn := <-c
-		allCerts = allCerts + cn
-		// expect cn to be in form LAST.FIRST.MIDDLE.12345678
-		// cnSlice := strings.Split(cn, ".")
-		// certKey, err := strconv.Atoi(cnSlice[len(cnSlice)-1])
-		// if err != nil {
-		// 	log.Fatal("Can't parse EDIPI #")
-		// }
-		// allCerts[certKey] = cn
+	currMsg := <- c
+	allCerts = allCerts + currMsg
+	// log.Println(currMsg)
+	for currMsg != "---END---" {
+		allCerts = allCerts + currMsg
+		currMsg = <- c
+		// log.Println(currMsg)
 	}
 	// write out the allCerts.txt file
 	fmt.Println(allCerts)
@@ -156,21 +153,18 @@ func processPST(file string, c chan string) {
 		return
 	}
 
-	foundSignature := false
-	err = GetSubFolders(pstFile, rootFolder, formatType, encryptionType, &foundSignature, c)
+	err = GetSubFolders(pstFile, rootFolder, formatType, encryptionType, c)
 
 	if err != nil {
 		fmt.Printf("Failed to get sub-folders: %s\n", err)
 		c <- ""
 		return
 	}
+	c <- "---END---"
 }
 
 // GetSubFolders is a recursive function which retrieves all sub-folders for the specified folder.
-func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, foundSignature *bool, c chan string) error {
-	if *foundSignature {
-		return nil
-	}
+func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, c chan string) error {
 	subFolders, err := pstFile.GetSubFolders(folder, formatType, encryptionType)
 
 	if err != nil {
@@ -178,10 +172,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 	}
 
 	for _, subFolder := range subFolders {
-		// fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
 		if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Sent Items") {
 			continue
 		}
+		log.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
 
 		messages, err := pstFile.GetMessages(subFolder, formatType, encryptionType)
 
@@ -190,11 +184,9 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 		}
 
 		if len(messages) > 0 {
-			// fmt.Printf("Found %d messages.\n", len(messages))
-			for _, msg := range messages {
-				if *foundSignature {
-					return nil
-				}
+			log.Printf("Found %d messages.\n", len(messages))
+			for i, msg := range messages {
+				log.Printf("PROCESSING MESSAGE # %d", i)
 				hasAttachments, err := msg.HasAttachments()
 				if err != nil {
 					return err
@@ -202,10 +194,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				if !hasAttachments {
 					continue
 				}
-				// from, err := msg.GetFrom(&pstFile, formatType, encryptionType)
-				// if err != nil {
-				// 	return err
-				// }
+				from, err := msg.GetFrom(&pstFile, formatType, encryptionType)
+				if err != nil {
+					return err
+				}
 				myAttachments, err := msg.GetAttachments(&pstFile, formatType, encryptionType)
 				if err != nil {
 					return err
@@ -232,10 +224,12 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						return err
 					}
 					mr := multipart.NewReader(msg.Body, params["boundary"])
-					for {
+					eof := false
+					for !eof{
 						p, err := mr.NextPart()
 						if err == io.EOF {
-							return nil
+							eof = true
+							continue
 						}
 						if err != nil {
 							log.Fatal(err)
@@ -256,6 +250,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 								log.Fatal(err)
 							}
 							cn := p7m.GetOnlySigner().Subject.CommonName
+							log.Println(cn)
 							cnSplit := strings.Split(cn, ".")
 							lName := cnSplit[0]
 							fName := cnSplit[1]
@@ -273,15 +268,19 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							issuer := p7m.GetOnlySigner().Issuer
 							ca := p7m.GetOnlySigner().Issuer.CommonName
 							fmtName := fmt.Sprintf("Name: %s, %s %s", lName, fName, mName)
-							// fmtEmail := fmt.Sprintf("Email: %s", from)
-							fmtEmail := fmt.Sprintf("Email: %s", email)
+							fmtEmail := ""
+							if email != ""{
+								fmtEmail = fmt.Sprintf("Email: %s", email)
+							} else {
+								fmtEmail = fmt.Sprintf("Email: %s", from)
+							}
 							fmtEdiPI := fmt.Sprintf("EDIPI: %s", edipi)
 							fmtUpn := fmt.Sprintf("Principle Name: %s", upn)
 							fmtSerial := fmt.Sprintf("Serial: %x", serial)
 							fmtIssuer := fmt.Sprintf("Issuer: %s", issuer)
 							fmtCA := fmt.Sprintf("Certificate Authority: %s", ca)
 							cert := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s", fmtName, fmtEmail, fmtEdiPI, fmtUpn, fmtSerial, fmtIssuer, fmtCA)
-							// *foundSignature = true
+							// log.Println(cert)
 							c <- cert
 						}
 					}
@@ -289,8 +288,8 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 			}
 		}
 
-		if !*foundSignature {
-			err = GetSubFolders(pstFile, subFolder, formatType, encryptionType, foundSignature, c)
+		if subFolder.HasSubFolders {
+			err = GetSubFolders(pstFile, subFolder, formatType, encryptionType, c)
 			if err != nil {
 				return err
 			}
