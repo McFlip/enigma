@@ -61,13 +61,14 @@ func main() {
 	for _, file := range files {
 		go processPST(file, c)
 	}
-	currMsg := <- c
-	allCerts = allCerts + currMsg
-	// log.Println(currMsg)
-	for currMsg != "---END---" {
-		allCerts = allCerts + currMsg
-		currMsg = <- c
+	for completedFiles := 0; completedFiles < len(files); completedFiles++ {
+		currMsg := <- c
 		// log.Println(currMsg)
+		for currMsg != "---END---" {
+			allCerts = allCerts + "\n----------\n" + currMsg
+			currMsg = <- c
+			// log.Println(currMsg)
+		}
 	}
 	// write out the allCerts.txt file
 	fmt.Println(allCerts)
@@ -157,7 +158,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get sub-folders: %s\n", err)
-		c <- ""
+		c <- "---END---"
 		return
 	}
 	c <- "---END---"
@@ -172,7 +173,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 	}
 
 	for _, subFolder := range subFolders {
-		if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Sent Items") {
+		if !(subFolder.DisplayName == "Top of Outlook data file" || subFolder.DisplayName == "Top of Personal Folders" || subFolder.DisplayName == "Sent Items" || subFolder.DisplayName == "top of information store" || subFolder.DisplayName == "sent items") {
 			continue
 		}
 		log.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
