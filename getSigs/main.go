@@ -1,4 +1,4 @@
-// Parse EDIPI numbers from Common Name field in signed emails
+// Parse certificate info from signed emails. This info helps you fetch keys from escrow.
 package main
 
 import (
@@ -15,17 +15,15 @@ import (
 	"path/filepath"
 	"strings"
 
-	// "strconv"
-
 	pst "github.com/mooijtech/go-pst/v4/pkg"
 	pkcs7 "go.mozilla.org/pkcs7"
 )
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Println("Usage: enigma <inputDir> <outputDir>")
+		fmt.Println("Usage: .\\getSigs.exe <inputDir> <outputDir>")
 		fmt.Println("<inputDir>: source directory of input PSTs containing signed emails sent by the custodians")
-		fmt.Println("<outputDir>: the file 'allCerts.txt' will be output here. It will contain all common names parsed.")
+		fmt.Println("<outputDir>: the file 'allCerts.txt' will be output here. It will contain all available certs de-duplicated.")
 		os.Exit(1)
 	}
 	inDir := os.Args[1]
@@ -53,41 +51,40 @@ func main() {
 	}
 
 	// process each pst in a goroutine
-	// get common name back in channel
-	// use a map to dedup with EDIPI as the key
+	// get cert back in channel
+	// use a map to dedup with CA+serial as composite key
 	c := make(chan string)
-	// allCerts := make(map[int]string)
 	allCerts := make(map[string]string)
 	for _, file := range files {
 		go processPST(file, c)
 	}
 	for completedFiles := 0; completedFiles < len(files); completedFiles++ {
-		currMsg := <- c
+		currMsg := <-c
 		// log.Println(currMsg)
 		for currMsg != "---END---" {
 			// composite key on serial # and CA strings
-			serial, ca, found := "","",false
+			serial, ca, found := "", "", false
 			_, serial, found = strings.Cut(currMsg, "Serial: ")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			serial, _, found = strings.Cut(serial, "\n")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			_, ca, found = strings.Cut(currMsg, "Certificate Authority: ")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			key := ca + serial
 			allCerts[key] = "\n----------\n" + currMsg
-			currMsg = <- c
+			currMsg = <-c
 			// log.Println(currMsg)
 		}
 	}
@@ -128,13 +125,13 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to read signature: %s\n", err)
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
 	if !isValidSignature {
 		fmt.Printf("Invalid file signature.\n")
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
@@ -142,7 +139,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get format type: %s\n", err)
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
@@ -152,7 +149,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get encryption type: %s\n", err)
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
@@ -164,7 +161,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to initialize node and block b-tree.\n")
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
@@ -172,7 +169,7 @@ func processPST(file string, c chan string) {
 
 	if err != nil {
 		fmt.Printf("Failed to get root folder: %s\n", err)
-		c <- ""
+		c <- "---END---"
 		return
 	}
 
@@ -248,7 +245,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					}
 					mr := multipart.NewReader(msg.Body, params["boundary"])
 					eof := false
-					for !eof{
+					for !eof {
 						p, err := mr.NextPart()
 						if err == io.EOF {
 							eof = true
@@ -272,7 +269,8 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							if err != nil {
 								log.Fatal(err)
 							}
-							cn := p7m.GetOnlySigner().Subject.CommonName
+							signer := p7m.GetOnlySigner()
+							cn := signer.Subject.CommonName
 							log.Println(cn)
 							cnSplit := strings.Split(cn, ".")
 							lName := cnSplit[0]
@@ -282,17 +280,19 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							if len(cnSplit) == 4 {
 								mName = cnSplit[2]
 							}
-							email := strings.Join(p7m.GetOnlySigner().EmailAddresses, ";") // just using "From" header
-							upn := strings.Join(p7m.GetOnlySigner().DNSNames, ";")
+							email := strings.Join(signer.EmailAddresses, ";")
+							upn := strings.Join(signer.DNSNames, ";")
 							if len(upn) == 0 {
 								upn = fmt.Sprintf("%s@mil", edipi)
 							}
-							serial := p7m.GetOnlySigner().SerialNumber
-							issuer := p7m.GetOnlySigner().Issuer
-							ca := p7m.GetOnlySigner().Issuer.CommonName
+							serial := signer.SerialNumber
+							issuer := signer.Issuer
+							ca := signer.Issuer.CommonName
+							notBefore := signer.NotBefore
+							notAfter := signer.NotAfter
 							fmtName := fmt.Sprintf("Name: %s, %s %s", lName, fName, mName)
 							fmtEmail := ""
-							if email != ""{
+							if email != "" {
 								fmtEmail = fmt.Sprintf("Email: %s", email)
 							} else {
 								fmtEmail = fmt.Sprintf("Email: %s", from)
@@ -302,7 +302,9 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 							fmtSerial := fmt.Sprintf("Serial: %x", serial)
 							fmtIssuer := fmt.Sprintf("Issuer: %s", issuer)
 							fmtCA := fmt.Sprintf("Certificate Authority: %s", ca)
-							cert := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s", fmtName, fmtEmail, fmtEdiPI, fmtUpn, fmtSerial, fmtIssuer, fmtCA)
+							fmtNotBefore := fmt.Sprintf("Not Before: %s", notBefore)
+							fmtNotAfter := fmt.Sprintf("Not After: %s", notAfter)
+							cert := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s", fmtName, fmtEmail, fmtEdiPI, fmtUpn, fmtSerial, fmtIssuer, fmtCA, fmtNotBefore, fmtNotAfter)
 							// log.Println(cert)
 							c <- cert
 						}
