@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 	inDir := os.Args[1]
-	// outDir := os.Args[2]
+	outDir := os.Args[2]
 
 	// get list of pst files to process
 	files := []string{}
@@ -57,7 +57,7 @@ func main() {
 	// use a map to dedup with EDIPI as the key
 	c := make(chan string)
 	// allCerts := make(map[int]string)
-	allCerts := ""
+	allCerts := make(map[string]string)
 	for _, file := range files {
 		go processPST(file, c)
 	}
@@ -65,21 +65,43 @@ func main() {
 		currMsg := <- c
 		// log.Println(currMsg)
 		for currMsg != "---END---" {
-			allCerts = allCerts + "\n----------\n" + currMsg
+			// composite key on serial # and CA strings
+			serial, ca, found := "","",false
+			_, serial, found = strings.Cut(currMsg, "Serial: ")
+			if !found {
+				log.Printf("Error parsing cert: %s\n", currMsg)
+				currMsg = <- c
+				continue
+			}
+			serial, _, found = strings.Cut(serial, "\n")
+			if !found {
+				log.Printf("Error parsing cert: %s\n", currMsg)
+				currMsg = <- c
+				continue
+			}
+			_, ca, found = strings.Cut(currMsg, "Certificate Authority: ")
+			if !found {
+				log.Printf("Error parsing cert: %s\n", currMsg)
+				currMsg = <- c
+				continue
+			}
+			key := ca + serial
+			allCerts[key] = "\n----------\n" + currMsg
 			currMsg = <- c
 			// log.Println(currMsg)
 		}
 	}
 	// write out the allCerts.txt file
-	fmt.Println(allCerts)
-	// allCertsStr := ""
-	// for _, val := range allCerts {
-	// 	allCertsStr = allCertsStr + val + "\n"
-	// }
-	// err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
-	// if err != nil {
-	// 	log.Fatal("failed to write output to allCerts.txt")
-	// }
+	// fmt.Println(allCerts)
+	allCertsStr := ""
+	for _, val := range allCerts {
+		allCertsStr = allCertsStr + val + "\n"
+	}
+	allCertsStr = allCertsStr + "----------\n\n"
+	err = os.WriteFile(filepath.Join(outDir, "allCerts.txt"), []byte(allCertsStr), 0666)
+	if err != nil {
+		log.Fatal("failed to write output to allCerts.txt")
+	}
 }
 
 // goroutine processes 1 pst
