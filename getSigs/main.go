@@ -60,36 +60,36 @@ func main() {
 		go processPST(file, outDir, c)
 	}
 	for completedFiles := 0; completedFiles < len(files); completedFiles++ {
-		currMsg := <- c
+		currMsg := <-c
 		for currMsg != "---END---" {
 			// blank msg means something went wrong
 			if currMsg == "" {
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			// composite key on serial # and CA strings
-			serial, ca, found := "","",false
+			serial, ca, found := "", "", false
 			_, serial, found = strings.Cut(currMsg, "Serial: ")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			serial, _, found = strings.Cut(serial, "\n")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			_, ca, found = strings.Cut(currMsg, "Certificate Authority: ")
 			if !found {
 				log.Printf("Error parsing cert: %s\n", currMsg)
-				currMsg = <- c
+				currMsg = <-c
 				continue
 			}
 			key := ca + serial
 			allCerts[key] = "\n----------\n" + currMsg
-			currMsg = <- c
+			currMsg = <-c
 		}
 	}
 	// write out the allCerts.txt file
@@ -179,8 +179,8 @@ func processMsg(msg pst.Message, pstFile pst.File, formatType string, encryption
 	// don't choke on corrupt PSTs
 	defer func() {
 		if r := recover(); r != nil {
-				fmt.Printf("Panic: %+v\n", r)
-				c <- ""
+			fmt.Printf("Panic: %+v\n", r)
+			c <- ""
 		}
 	}()
 
@@ -266,7 +266,7 @@ func processMsg(msg pst.Message, pstFile pst.File, formatType string, encryption
 			// remove illegal filename char on Windows
 			msgId, _ = strings.CutPrefix(msgId, "<")
 			msgId, _ = strings.CutSuffix(msgId, ">")
-			err = os.WriteFile(filepath.Join(outDir, msgId + "_smime.p7m"), attachBytes, 0666)
+			err = os.WriteFile(filepath.Join(outDir, msgId+"_smime.p7m"), attachBytes, 0666)
 			if err != nil {
 				log.Println("Failed to write out smime.p7m", err)
 				c <- ""
@@ -292,7 +292,7 @@ func processMsg(msg pst.Message, pstFile pst.File, formatType string, encryption
 		}
 		mr := multipart.NewReader(msg.Body, params["boundary"])
 		eof := false
-		for !eof{
+		for !eof {
 			p, err := mr.NextPart()
 			if err == io.EOF {
 				eof = true
@@ -364,7 +364,7 @@ func processMsg(msg pst.Message, pstFile pst.File, formatType string, encryption
 				// Put everything together into format strings
 				fmtName := fmt.Sprintf("Name: %s, %s %s", lName, fName, mName)
 				fmtEmail := ""
-				if email != ""{
+				if email != "" {
 					fmtEmail = fmt.Sprintf("Email: %s", email)
 				} else {
 					fmtEmail = fmt.Sprintf("Email: %s", from)
