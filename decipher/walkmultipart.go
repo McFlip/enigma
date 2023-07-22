@@ -15,10 +15,11 @@ import (
 
 // TODO: filter headers and do re-write within boundaries
 func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, error) {
-	msg, err := mail.ReadMessage(bytes.NewReader(attachBytes))
 	pt := []byte{}
+	msg, err := mail.ReadMessage(bytes.NewReader(attachBytes))
 	if err != nil {
-		return nil, err
+		// If it's not a mail msg then just return back the input
+		return attachBytes, nil
 	}
 	mediaType, params, err := mime.ParseMediaType(msg.Header.Get("Content-Type"))
 	if err != nil {
