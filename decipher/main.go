@@ -104,7 +104,7 @@ func main() {
 	// For each PST, Walk the B-Tree and handle each subtree as a goroutine
 
 	for _, file := range pstFiles {
-		err := processPST(file, outDir, certKeyPairs)
+		err := processPST(file, outDir, certKeyPairs, &msgExceptions)
 		if err != nil {
 			pstException := fmt.Sprintf("%s,%s", file, err)
 			pstExceptions = append(pstExceptions, pstException)

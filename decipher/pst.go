@@ -8,7 +8,7 @@ import (
 	pst "github.com/mooijtech/go-pst/v4/pkg"
 )
 
-func processPST(file string, outDir string, certKeyPairs []certKeyPair) error {
+func processPST(file string, outDir string, certKeyPairs []certKeyPair, msgExceptions *[]string) error {
 	pstFile, err := pst.NewFromFile(file)
 
 	if err != nil {
@@ -72,35 +72,9 @@ func processPST(file string, outDir string, certKeyPairs []certKeyPair) error {
 		return err
 	}
 
-	// numSubFolders tracks how far we have decended and how many goroutines we must wait on
-	// cSub signals decending 1 level; lauching goroutine
-	// cDone signals ascending back 1 level; goroutine is done
-	// cErr is for error signaling
-	cSub := make(chan string)
-	cDone := make(chan string)
-	cErr := make(chan string)
-	numSubFolders := 0
 	target := filepath.Base(file)
 	outPath := filepath.Join(outDir, target)
-	go GetSubFolders(pstFile, rootFolder, formatType, encryptionType, target, outPath, certKeyPairs, cSub, cDone, cErr)
+	err = GetSubFolders(pstFile, rootFolder, formatType, encryptionType, target, outPath, certKeyPairs, msgExceptions)
 
-	for {
-		select {
-		case dive := <-cSub:
-			numSubFolders++
-			fmt.Println(dive)
-		case done := <-cDone:
-			numSubFolders--
-			fmt.Println(done)
-		case err := <-cErr:
-			fmt.Println(err)
-			// case <-cErr:
-			// 	fmt.Println("Fubar")
-		}
-		if numSubFolders < 0 {
-			break
-		}
-	}
-
-	return nil
+	return err
 }

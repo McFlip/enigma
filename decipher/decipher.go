@@ -7,12 +7,11 @@ import (
 	"go.mozilla.org/pkcs7"
 )
 
-func decipher(attachBytes []byte, certKeyPairs []certKeyPair, cErr chan string) ([]byte, error) {
+func decipher(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, error) {
 	// os.WriteFile("smime.p7m", attachBytes, 0666)
 	p7m, err := pkcs7.Parse(attachBytes)
 	if err != nil {
 		fmt.Println(err)
-		cErr <- err.Error()
 		return nil, err
 	}
 	fmt.Println("$$$$$$$$$$$$$$$$$$")
@@ -23,7 +22,6 @@ func decipher(attachBytes []byte, certKeyPairs []certKeyPair, cErr chan string) 
 		if err != nil {
 			fmt.Println(err)
 			if i == len(certKeyPairs)-1 {
-				cErr <- "No matching cert-key pair"
 				return nil, err
 			}
 		}

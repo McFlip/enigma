@@ -10,17 +10,16 @@ import (
 	pst "github.com/mooijtech/go-pst/v4/pkg"
 )
 
-func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, outPath string, certKeyPairs []certKeyPair, cSub chan string, cDone chan string, cErr chan string) {
+func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, outPath string, certKeyPairs []certKeyPair, msgExceptions *[]string) error {
 	subFolders, err := pstFile.GetSubFolders(folder, formatType, encryptionType)
 
 	if err != nil {
-		cErr <- err.Error()
-		cDone <- fmt.Sprint("Failed to get subfolders for ", folder.DisplayName)
-		return
+		failMgt := fmt.Sprint("Failed to get subfolders for ", folder.DisplayName, " in file ", pstFile)
+		fmt.Println(failMgt)
+		return err
 	}
 
 	for _, subFolder := range subFolders {
-		// cSub <- "Dive!"
 		fmt.Printf("Parsing sub-folder: %s\n", subFolder.DisplayName)
 		// numbered filenames for output
 		fileNum := 1
@@ -28,9 +27,9 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 		messages, err := pstFile.GetMessages(subFolder, formatType, encryptionType)
 
 		if err != nil {
-			cErr <- err.Error()
-			cDone <- fmt.Sprint("Failed to get messages for ", subFolder.DisplayName)
-			return
+			failMgt := fmt.Sprint("Failed to get messages for ", subFolder.DisplayName, " in file ", pstFile)
+			fmt.Println(failMgt)
+			return err
 		}
 
 		if len(messages) > 0 {
@@ -54,7 +53,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				hasAttachments, err := msg.HasAttachments()
 				if err != nil {
 					logStr = logStr + err.Error() + "\n"
-					cErr <- logStr
+					*msgExceptions = append(*msgExceptions, logStr)
 					continue
 				}
 				if !hasAttachments {
@@ -63,7 +62,7 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 				myAttachments, err := msg.GetAttachments(&pstFile, formatType, encryptionType)
 				if err != nil {
 					logStr = logStr + err.Error() + "\n"
-					cErr <- logStr
+					*msgExceptions = append(*msgExceptions, logStr)
 					continue
 				}
 				for _, attachment := range myAttachments {
@@ -78,30 +77,34 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					fmt.Println(logStr)
 					attachStream, err := attachment.GetInputStream(&pstFile, formatType, encryptionType)
 					if err != nil {
-						cErr <- err.Error()
+						logStr = logStr + err.Error() + "\n"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					attachBytes, err := attachStream.ReadCompletely()
 					if err != nil {
-						cErr <- err.Error()
+						logStr = logStr + err.Error() + "\n"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					// decipher
-					pt, err := decipher(attachBytes, certKeyPairs, cErr)
+					pt, err := decipher(attachBytes, certKeyPairs)
 					if err != nil {
+						logStr = logStr + err.Error() + "\n"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					// check for nested CT
-					child, err := walkMultipart(pt, certKeyPairs, cErr)
+					child, err := walkMultipart(pt, certKeyPairs)
 					if err != nil {
 						logStr = logStr + err.Error() + "\n"
-						cErr <- logStr
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					fmt.Println(string(child))
 					header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
 					if err != nil {
-						cErr <- "Failed to get msg headers"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					// Filter out Content-Type and Content-Transfer-Encoding headers
@@ -115,7 +118,8 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					err = os.MkdirAll(basePath, 0777)
 					if err != nil {
 						fmt.Println(err)
-						cErr <- "Failed to make output dir"
+						logStr = logStr + "Failed to make output dir" + "\n"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 					fullPath := filepath.Join(basePath, fmt.Sprint(fileNum)+".eml")
@@ -124,20 +128,20 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					err = os.WriteFile(fullPath, []byte(outMsg), 0666)
 					if err != nil {
 						fmt.Println(err)
-						cErr <- "Failed to write out .eml file"
+						logStr = logStr + "Failed to write out .eml file" + "\n"
+						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
 				}
 			}
 		}
 		if subFolder.HasSubFolders {
-			cSub <- "Dive!"
 			outPath = filepath.Join(outPath, subFolder.DisplayName)
-			go GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, outPath, certKeyPairs, cSub, cDone, cErr)
+			return GetSubFolders(pstFile, subFolder, formatType, encryptionType, target, outPath, certKeyPairs, msgExceptions)
 		} else {
 			fmt.Println("Leaf node", subFolder.DisplayName)
 		}
 	}
-	cDone <- "done"
+	return nil
 
 }

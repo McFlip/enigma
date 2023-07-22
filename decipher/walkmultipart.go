@@ -14,7 +14,7 @@ import (
 )
 
 // TODO: filter headers and do re-write within boundaries
-func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, cErr chan string) ([]byte, error) {
+func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, error) {
 	msg, err := mail.ReadMessage(bytes.NewReader(attachBytes))
 	pt := []byte{}
 	if err != nil {
@@ -38,14 +38,12 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, cErr chan str
 			log.Fatal(err)
 		}
 		dst = dst[:n]
-		pt, err = decipher(dst, certKeyPairs, cErr)
+		pt, err = decipher(dst, certKeyPairs)
 		if err != nil {
-			cErr <- err.Error()
 			return nil, err
 		}
-		ptChild, err := walkMultipart(pt, certKeyPairs, cErr)
+		ptChild, err := walkMultipart(pt, certKeyPairs)
 		if err != nil {
-			cErr <- err.Error()
 			return nil, err
 		}
 		if len(ptChild) == 0 {
@@ -70,7 +68,7 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, cErr chan str
 		fmt.Println(p.Header)
 		fmt.Println("!!!")
 		if strings.Contains(p.Header.Get("Content-Type"), "message/rfc822") {
-			return walkMultipart(slurp, certKeyPairs, cErr)
+			return walkMultipart(slurp, certKeyPairs)
 		}
 	}
 	return pt, nil
