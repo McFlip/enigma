@@ -95,13 +95,12 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						continue
 					}
 					// check for nested CT
-					child, err := walkMultipart(pt, certKeyPairs)
+					pt, err = walkMultipart(pt, certKeyPairs)
 					if err != nil {
 						logStr = logStr + err.Error() + "\n"
 						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
-					fmt.Println(string(child))
 					header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
 					if err != nil {
 						*msgExceptions = append(*msgExceptions, logStr)

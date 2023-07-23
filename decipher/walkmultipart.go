@@ -43,14 +43,7 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, erro
 		if err != nil {
 			return nil, err
 		}
-		ptChild, err := walkMultipart(pt, certKeyPairs)
-		if err != nil {
-			return nil, err
-		}
-		if len(ptChild) == 0 {
-			return pt, nil
-		}
-		return ptChild, nil
+		return walkMultipart(pt, certKeyPairs)
 	}
 	mr := multipart.NewReader(msg.Body, params["boundary"])
 	for {
@@ -69,7 +62,13 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, erro
 		fmt.Println(p.Header)
 		fmt.Println("!!!")
 		if strings.Contains(p.Header.Get("Content-Type"), "message/rfc822") {
-			return walkMultipart(slurp, certKeyPairs)
+			child, err := walkMultipart(slurp, certKeyPairs)
+			if err != nil {
+				return nil, err
+			}
+			pt = append(pt, child...)
+		} else {
+			pt = append(pt, slurp...)
 		}
 	}
 	return pt, nil
