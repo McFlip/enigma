@@ -20,7 +20,7 @@ func filterHeaders(headers string) string {
 	headKey := regexp.MustCompile(`^[A-Z,a-z,-]+:`)
 	for _, ln := range headerList {
 		// filter out the keys we don't want
-		if strings.HasPrefix(ln, "Content-Type:") || strings.HasPrefix(ln, "Content-Transfer-Encoding:") {
+		if strings.HasPrefix(ln, "Content-Type:") || strings.HasPrefix(ln, "Content-Transfer-Encoding:") || strings.HasPrefix(ln, "X-MS-Has-Attach:") {
 			continue
 		}
 		// Keys can have values accross multiple lines, starting with a space
