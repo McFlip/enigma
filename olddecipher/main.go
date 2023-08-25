@@ -1,7 +1,7 @@
-// Takes a dir of eml files, a dir of PKCS8 keys, a password for the keys,
-// and outputs dirs of *.eml files and an exceptions report.
+// Takes a dir of PSTs, a dir of PKCS8 keys, a password for the keys,
+// and outputs dirs of *.msg files and an exceptions report.
 // Output dir tree structure will mirror PST structure.
-// PT emails will be dropped.
+// PT emails in PSTs will be dropped.
 package main
 
 import (
@@ -48,7 +48,7 @@ func main() {
 		}
 		if !info.IsDir() {
 			fileExt := filepath.Ext(info.Name())
-			if fileExt == ".eml" {
+			if fileExt == ".pst" {
 				pstFiles = append(pstFiles, path)
 			}
 		}
@@ -96,31 +96,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fileNum := 1
+	// for _, ckPair := range certKeyPairs {
+	// 	fmt.Println(ckPair.cert.PublicKeyAlgorithm)
+	// 	fmt.Println(x509.MarshalPKIXPublicKey(&ckPair.privKey))
+	// }
+
+	// For each PST, Walk the B-Tree and handle each subtree as a goroutine
+
 	for _, file := range pstFiles {
-		msg, err := os.ReadFile(file)
+		err := processPST(file, outDir, certKeyPairs, &msgExceptions)
 		if err != nil {
 			pstException := fmt.Sprintf("%s,%s", file, err)
 			pstExceptions = append(pstExceptions, pstException)
-		}
-		// foundCT := true
-		foundCT := false
-		pt, err := walkMultipart(msg, certKeyPairs, &foundCT)
-		if err != nil {
-			pstException := fmt.Sprintf("%s,%s", file, err)
-			pstExceptions = append(pstExceptions, pstException)
-		}
-		if foundCT {
-			fullPath := filepath.Join(outDir, fmt.Sprint(fileNum)+".eml")
-			fileNum++
-			// fmt.Println(string(pt))
-			err = os.WriteFile(fullPath, pt, 0666)
-			if err != nil {
-				fmt.Println(err)
-				// logStr = logStr + "Failed to write out .eml file" + "\n"
-				// *msgExceptions = append(*msgExceptions, logStr)
-				continue
-			}
 		}
 	}
 

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	pst "github.com/mooijtech/go-pst/v4/pkg"
+	pst "github.com/mooijtech/go-pst/v6/pkg"
 )
 
 func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encryptionType string, target string, outPath string, certKeyPairs []certKeyPair, msgExceptions *[]string) error {
@@ -65,14 +65,10 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 					*msgExceptions = append(*msgExceptions, logStr)
 					continue
 				}
+				foundCT := false
+				accumulatedPT := []byte{}
 				for _, attachment := range myAttachments {
 					// TODO: handle opaque signed email
-					// TODO: check for special case of PT parent w/ CT children
-					mimeType, _ := attachment.GetString(14094)
-					fmt.Println(mimeType)
-					if mimeType != "application/pkcs7-mime" {
-						continue
-					}
 					fmt.Println("$$$$$$$$$$$$$$$$$$")
 					fmt.Println(logStr)
 					attachStream, err := attachment.GetInputStream(&pstFile, formatType, encryptionType)
@@ -87,50 +83,68 @@ func GetSubFolders(pstFile pst.File, folder pst.Folder, formatType string, encry
 						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
-					// decipher
-					pt, err := decipher(attachBytes, certKeyPairs)
-					if err != nil {
-						logStr = logStr + err.Error() + "\n"
-						*msgExceptions = append(*msgExceptions, logStr)
-						continue
+					// TODO: check for special case of PT parent w/ CT children
+					pt := []byte{}
+					mimeType, _ := attachment.GetString(14094)
+					fmt.Println(mimeType)
+					filename, _ := attachment.GetLongFilename()
+					fmt.Println(filename)
+					if mimeType == "application/pkcs7-mime" {
+						// decipher
+						foundCT = true
+						pt, err = decipher(attachBytes, certKeyPairs)
+						if err != nil {
+							logStr = logStr + err.Error() + "\n"
+							*msgExceptions = append(*msgExceptions, logStr)
+							continue
+						}
+					} else {
+						fmt.Println("lulzwtf")
+						fmt.Println(string(attachBytes))
+						fmt.Println("lulzwtf")
 					}
 					// check for nested CT
-					pt, err = walkMultipart(pt, certKeyPairs)
+					pt, err = walkMultipart(pt, certKeyPairs, &foundCT)
 					if err != nil {
 						logStr = logStr + err.Error() + "\n"
 						*msgExceptions = append(*msgExceptions, logStr)
 						continue
 					}
-					header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
-					if err != nil {
-						*msgExceptions = append(*msgExceptions, logStr)
-						continue
-					}
-					// Filter out Content-Type and Content-Transfer-Encoding headers
-					filteredHeaders := filterHeaders(header)
-					outMsg := filteredHeaders + string(pt)
-					// TODO: Check if we need to drill down - encrypted envelope inside another
-					// TODO: re-assemble multipart tree if necessary
-					basePath := filepath.Join(outPath, subFolder.DisplayName)
-					basePath = strings.ReplaceAll(basePath, " ", "_")
-					fmt.Println(basePath)
-					err = os.MkdirAll(basePath, 0777)
-					if err != nil {
-						fmt.Println(err)
-						logStr = logStr + "Failed to make output dir" + "\n"
-						*msgExceptions = append(*msgExceptions, logStr)
-						continue
-					}
-					fullPath := filepath.Join(basePath, fmt.Sprint(fileNum)+".eml")
-					fileNum++
-					fmt.Println(fullPath)
-					err = os.WriteFile(fullPath, []byte(outMsg), 0666)
-					if err != nil {
-						fmt.Println(err)
-						logStr = logStr + "Failed to write out .eml file" + "\n"
-						*msgExceptions = append(*msgExceptions, logStr)
-						continue
-					}
+					accumulatedPT = append(accumulatedPT, pt...)
+				}
+				// check if we actually processed CT; drop PT-only emails
+				if !foundCT {
+					continue
+				}
+				header, err := msg.GetHeaders(&pstFile, formatType, encryptionType)
+				if err != nil {
+					*msgExceptions = append(*msgExceptions, logStr)
+					continue
+				}
+				// Filter out Content-Type and Content-Transfer-Encoding headers
+				filteredHeaders := filterHeaders(header)
+				outMsg := filteredHeaders + string(accumulatedPT)
+				// TODO: Check if we need to drill down - encrypted envelope inside another
+				// TODO: re-assemble multipart tree if necessary
+				basePath := filepath.Join(outPath, subFolder.DisplayName)
+				basePath = strings.ReplaceAll(basePath, " ", "_")
+				fmt.Println(basePath)
+				err = os.MkdirAll(basePath, 0777)
+				if err != nil {
+					fmt.Println(err)
+					logStr = logStr + "Failed to make output dir" + "\n"
+					*msgExceptions = append(*msgExceptions, logStr)
+					continue
+				}
+				fullPath := filepath.Join(basePath, fmt.Sprint(fileNum)+".eml")
+				fileNum++
+				fmt.Println(fullPath)
+				err = os.WriteFile(fullPath, []byte(outMsg), 0666)
+				if err != nil {
+					fmt.Println(err)
+					logStr = logStr + "Failed to write out .eml file" + "\n"
+					*msgExceptions = append(*msgExceptions, logStr)
+					continue
 				}
 			}
 		}

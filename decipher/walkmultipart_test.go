@@ -30,7 +30,8 @@ func TestPlainMsgBody(t *testing.T) {
 	}
 	myCertKeyPair := certKeyPair{myCert, myKey}
 	certKeyPairs = append(certKeyPairs, myCertKeyPair)
-	actual, err := walkMultipart(msg, certKeyPairs)
+	foundCT := false
+	actual, err := walkMultipart(msg, certKeyPairs, &foundCT)
 	if err != nil {
 		t.Error(err)
 	}
