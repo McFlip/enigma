@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -84,6 +85,7 @@ func main() {
 	corruptExceptions := []string{"PST File\tError\n"}
 	decipherExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
 	decipherSuccess := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
+	ptExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -173,6 +175,14 @@ func main() {
 				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
 				corruptExceptions = append(corruptExceptions, corruptException)
 			}
+		} else {
+			// either the input file was plaintext or corrupt and missing smime.p7m attachment
+			loggingErr := logMsgException(file, msgFile, errors.New("plaintext input"), &ptExceptions)
+			if loggingErr != nil {
+				fmt.Printf("Error logging plaintext msg %s : %s\n", file, loggingErr)
+				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
+				corruptExceptions = append(corruptExceptions, corruptException)
+			}
 		}
 	}
 
@@ -181,6 +191,7 @@ func main() {
 		"corruptExceptions.csv":  corruptExceptions,
 		"decipherExceptions.csv": decipherExceptions,
 		"success.csv":            decipherSuccess,
+		"ptExceptions.csv":       ptExceptions,
 	}
 
 	for logName, logSlc := range logs {
