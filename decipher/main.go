@@ -43,6 +43,12 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *[]str
 	msgDate := header.Get("Date")
 	msgId := header.Get("Message-ID")
 	hasAttach := header.Get("X-MS-Has-Attach")
+	var errStr string
+	if msgError == nil {
+		errStr = "success"
+	} else {
+		errStr = msgError.Error()
+	}
 	msgErr := msgException{
 		target:      target,
 		from:        from,
@@ -53,7 +59,7 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *[]str
 		date:        msgDate,
 		messageId:   msgId,
 		attachments: hasAttach,
-		err:         msgError.Error(),
+		err:         errStr,
 	}
 	msgErrStr := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", msgErr.target, msgErr.from, msgErr.to, msgErr.cc, msgErr.bcc, msgErr.subj, msgErr.date, msgErr.messageId, msgErr.attachments, msgErr.err)
 	*errLog = append(*errLog, msgErrStr)
@@ -75,8 +81,9 @@ func main() {
 	inKeyDir := os.Args[3]
 	inPW := os.Args[4]
 	outDir := os.Args[5]
-	pstExceptions := []string{"PST File\tError\n"}
-	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
+	corruptExceptions := []string{"PST File\tError\n"}
+	decipherExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
+	decipherSuccess := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -138,18 +145,18 @@ func main() {
 	for _, file := range pstFiles {
 		msgFile, err := os.ReadFile(file)
 		if err != nil {
-			pstException := fmt.Sprintf("%s\t%s\n", file, err)
-			pstExceptions = append(pstExceptions, pstException)
+			corruptException := fmt.Sprintf("%s\t%s\n", file, err)
+			corruptExceptions = append(corruptExceptions, corruptException)
 			continue
 		}
 		foundCT := false
 		pt, err := walkMultipart(msgFile, certKeyPairs, &foundCT)
 		if err != nil {
-			loggingErr := logMsgException(file, msgFile, err, &msgExceptions)
+			loggingErr := logMsgException(file, msgFile, err, &decipherExceptions)
 			if loggingErr != nil {
-				fmt.Printf("Error reading msg %s : %s\n", file, loggingErr)
-				pstException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
-				pstExceptions = append(pstExceptions, pstException)
+				fmt.Printf("Error logging error for msg %s : %s\n", file, loggingErr)
+				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
+				corruptExceptions = append(corruptExceptions, corruptException)
 			}
 			continue
 		}
@@ -158,27 +165,32 @@ func main() {
 			fileNum++
 			err = os.WriteFile(fullPath, pt, 0666)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("Error writing out deciphered file %s : %s\n", file, err)
+			}
+			loggingErr := logMsgException(file, msgFile, nil, &decipherSuccess)
+			if loggingErr != nil {
+				fmt.Printf("Error logging success for %s : %s\n", file, loggingErr)
+				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
+				corruptExceptions = append(corruptExceptions, corruptException)
 			}
 		}
 	}
 
 	// Write out exceptions
-	pstErrFile, err := os.OpenFile("pstExceptions.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		panic("Can't open exception file for PST exceptions")
-	}
-	defer pstErrFile.Close()
-	for _, line := range pstExceptions {
-		pstErrFile.WriteString(line)
+	logs := map[string][]string{
+		"corruptExceptions.csv":  corruptExceptions,
+		"decipherExceptions.csv": decipherExceptions,
+		"success.csv":            decipherSuccess,
 	}
 
-	msgErrFile, err := os.OpenFile("msgExceptions.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		panic("Can't open exception file for msg exceptions")
-	}
-	defer msgErrFile.Close()
-	for _, line := range msgExceptions {
-		msgErrFile.WriteString(line)
+	for logName, logSlc := range logs {
+		logFile, err := os.OpenFile(logName, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatalf("Can't open log file %s to write results", logName)
+		}
+		defer logFile.Close()
+		for _, line := range logSlc {
+			logFile.WriteString(line)
+		}
 	}
 }
