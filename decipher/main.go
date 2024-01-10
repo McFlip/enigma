@@ -5,11 +5,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/x509"
 	"fmt"
 	"io/fs"
 	"log"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +22,42 @@ import (
 type certKeyPair struct {
 	cert    *x509.Certificate
 	privKey crypto.PrivateKey
+}
+
+type msgException struct {
+	target, from, to, cc, bcc, subj, date, messageId, attachments, err string
+}
+
+func logMsgException(file string, msgBytes []byte, msgError error, errLog *[]string) error {
+	msg, err := mail.ReadMessage(bytes.NewReader(msgBytes))
+	if err != nil {
+		return err
+	}
+	header := msg.Header
+	target := file
+	from := header.Get("From")
+	to := header.Get("To")
+	cc := header.Get("Cc")
+	bcc := header.Get("Bcc")
+	subj := header.Get("Subj")
+	msgDate := header.Get("Date")
+	msgId := header.Get("Message-ID")
+	hasAttach := header.Get("X-MS-Has-Attach")
+	msgErr := msgException{
+		target:      target,
+		from:        from,
+		to:          to,
+		cc:          cc,
+		bcc:         bcc,
+		subj:        subj,
+		date:        msgDate,
+		messageId:   msgId,
+		attachments: hasAttach,
+		err:         msgError.Error(),
+	}
+	msgErrStr := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", msgErr.target, msgErr.from, msgErr.to, msgErr.cc, msgErr.bcc, msgErr.subj, msgErr.date, msgErr.messageId, msgErr.attachments, msgErr.err)
+	*errLog = append(*errLog, msgErrStr)
+	return nil
 }
 
 func main() {
@@ -37,8 +75,8 @@ func main() {
 	inKeyDir := os.Args[3]
 	inPW := os.Args[4]
 	outDir := os.Args[5]
-	pstExceptions := []string{"PST File,Error"}
-	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError"}
+	pstExceptions := []string{"PST File\tError\n"}
+	msgExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -98,33 +136,49 @@ func main() {
 
 	fileNum := 1
 	for _, file := range pstFiles {
-		msg, err := os.ReadFile(file)
+		msgFile, err := os.ReadFile(file)
 		if err != nil {
-			pstException := fmt.Sprintf("%s,%s", file, err)
+			pstException := fmt.Sprintf("%s\t%s\n", file, err)
 			pstExceptions = append(pstExceptions, pstException)
+			continue
 		}
-		// foundCT := true
 		foundCT := false
-		pt, err := walkMultipart(msg, certKeyPairs, &foundCT)
+		pt, err := walkMultipart(msgFile, certKeyPairs, &foundCT)
 		if err != nil {
-			pstException := fmt.Sprintf("%s,%s", file, err)
-			pstExceptions = append(pstExceptions, pstException)
+			loggingErr := logMsgException(file, msgFile, err, &msgExceptions)
+			if loggingErr != nil {
+				fmt.Printf("Error reading msg %s : %s\n", file, loggingErr)
+				pstException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
+				pstExceptions = append(pstExceptions, pstException)
+			}
+			continue
 		}
 		if foundCT {
 			fullPath := filepath.Join(outDir, fmt.Sprint(fileNum)+".eml")
 			fileNum++
-			// fmt.Println(string(pt))
 			err = os.WriteFile(fullPath, pt, 0666)
 			if err != nil {
 				fmt.Println(err)
-				// logStr = logStr + "Failed to write out .eml file" + "\n"
-				// *msgExceptions = append(*msgExceptions, logStr)
-				continue
 			}
 		}
 	}
 
 	// Write out exceptions
-	fmt.Println(pstExceptions)
-	fmt.Println(msgExceptions)
+	pstErrFile, err := os.OpenFile("pstExceptions.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic("Can't open exception file for PST exceptions")
+	}
+	defer pstErrFile.Close()
+	for _, line := range pstExceptions {
+		pstErrFile.WriteString(line)
+	}
+
+	msgErrFile, err := os.OpenFile("msgExceptions.csv", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic("Can't open exception file for msg exceptions")
+	}
+	defer msgErrFile.Close()
+	for _, line := range msgExceptions {
+		msgErrFile.WriteString(line)
+	}
 }
