@@ -93,12 +93,6 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, foundCT *bool
 			break
 		}
 		if err != nil {
-			// DEBUG: func 'Is' not working for unkown reason, so access err.Error()
-			// if errors.Is(err, emptyBoundary)
-			if err.Error() == emptyBoundary.Error() {
-				pt = append(pt, fmt.Sprintf("\n--%s--\n", boundary)...)
-				break
-			}
 			return nil, err
 		}
 		if !(unwrapEnvelope && strings.Contains(boundary, `-LibPST-iamunique-`)) {
