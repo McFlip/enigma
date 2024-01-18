@@ -2,6 +2,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -209,25 +211,18 @@ func processPST(file string, c chan string) {
 					continue
 				}
 				// DEBUG: io.Pipe not working with attachment.WriteTo
-				fw, err := os.CreateTemp("", "attach.tmp")
-				if err != nil {
-					log.Fatal(err)
-				}
-				defer os.Remove(fw.Name()) // clean up
-				_, err = attachment.WriteTo(fw)
+				bufBs := make([]byte, 0, attachment.GetAttachSize())
+				buf := bytes.NewBuffer(bufBs)
+				w := bufio.NewWriter(buf)
+				_, err := attachment.WriteTo(w)
 				if err != nil {
 					log.Println("Failed to write attachment", err)
 					c <- ""
 					continue
 				}
 				// log.Println("Wrote attachment bytes: ", n)
-				fr, err := os.Open(fw.Name())
-				if err != nil {
-					log.Println("Failed to read attachment tmp file", err)
-					c <- ""
-					continue
-				}
-				msg, err := mail.ReadMessage(fr)
+				w.Flush()
+				msg, err := mail.ReadMessage(buf)
 				if err != nil {
 					log.Println("Failed to read message", err)
 					c <- ""
