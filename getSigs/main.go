@@ -26,10 +26,6 @@ import (
 	charsets "github.com/emersion/go-message/charset"
 )
 
-/*
-	"bytes"
-*/
-
 func main() {
 	if len(os.Args) != 3 {
 		fmt.Println("Usage: .\\getSigs.exe <inputDir> <outputDir>")
@@ -37,7 +33,7 @@ func main() {
 			"<inputDir>: source directory of input PSTs containing signed emails sent by the custodians",
 		)
 		fmt.Println(
-			"<outputDir>: the file 'allCerts.txt' will be output here. It will contain all available certs de-duplicated.",
+			"<outputDir>: the file 'commonNames.txt' will be output here. It will contain common names which includes EDIPI #s.",
 		)
 		os.Exit(1)
 	}
