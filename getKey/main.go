@@ -17,13 +17,14 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 5 {
-		log.Fatal("Usage: getKey inP12 inPW outPW outDir")
+	if len(os.Args) != 6 {
+		log.Fatal("Usage: getKey inP12 inPW outPW outKeyDir outCertDir")
 	}
 	inP12 := os.Args[1]
 	inPW := os.Args[2]
 	outPW := os.Args[3]
-	outDir := os.Args[4]
+	outKeyDir := os.Args[4]
+	outCertDir := os.Args[5]
 
 	p12Bs, err := os.ReadFile(inP12)
 	if err != nil {
@@ -43,8 +44,12 @@ func main() {
 	}
 	serial := fmt.Sprintf("%x", cert.SerialNumber)
 	fmt.Println(serial)
-	err = os.WriteFile(filepath.Join(outDir, serial+".key"), keyBs, 0550)
+	err = os.WriteFile(filepath.Join(outKeyDir, serial+".key"), keyBs, 0550)
 	if err != nil {
 		log.Fatal("Can't save key to outDir")
+	}
+	err = os.WriteFile(filepath.Join(outCertDir, serial+".cert"), cert.Raw, 0550)
+	if err != nil {
+		log.Fatal("Can't save cert to outDir")
 	}
 }
