@@ -22,10 +22,16 @@ THE SOFTWARE.
 
 import (
 	"fmt"
+	"log"
 
+	// "github.com/McFlip/enigma/getkeys"
+
+	getkeys "github.com/McFlip/enigma/cmd/getKeys"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+type p12Slc []getkeys.FnamePW
 
 // GetKeysCmd represents the GetKeys command
 var GetKeysCmd = &cobra.Command{
@@ -42,10 +48,26 @@ to quickly create a Cobra application.`,
 		viper.SetDefault("keys.p12Dir", "p12")
 		*p12Dir = viper.GetString("keys.p12Dir")
 		fmt.Println("p12:", *p12Dir)
+		viper.SetDefault("keys.keysDir", "keysDir")
+		*keysDir = viper.GetString("keys.keysDir")
+		fmt.Println("keysDir:", *keysDir)
+		viper.SetDefault("keys.certDir", "certDir")
+		*certDir = viper.GetString("keys.certDir")
+		fmt.Println("certDir:", *certDir)
+		viper.SetDefault("keys.casePW", "casePW")
+		*casePW = viper.GetString("keys.casePW")
+		fmt.Println("casePW:", *casePW)
+
+		// unmarshall p12 filename-pw array
+		var p12 p12Slc
+		if err := viper.UnmarshalKey("keys.p12PWs", &p12); err != nil {
+			log.Fatal("Failed to unmarshall p12 passwords: ", err)
+		}
+		fmt.Println("p12PWs: ", p12)
 	},
 }
 
-var p12Dir *string
+var p12Dir, keysDir, certDir, casePW *string
 
 func init() {
 	rootCmd.AddCommand(GetKeysCmd)
@@ -53,4 +75,12 @@ func init() {
 	p12Dir = GetKeysCmd.PersistentFlags().
 		String("p12Dir", "", "Dir containing p12 files from the RA/CA")
 	viper.BindPFlag("keys.p12Dir", GetKeysCmd.PersistentFlags().Lookup("p12Dir"))
+	keysDir = GetKeysCmd.PersistentFlags().String("keysDir", "", "Output dir for extracted keys")
+	viper.BindPFlag("keys.keysDir", GetKeysCmd.PersistentFlags().Lookup("keysDir"))
+	certDir = GetKeysCmd.PersistentFlags().
+		String("certDir", "", "Output dir for extracted certificates")
+	viper.BindPFlag("keys.certDir", GetKeysCmd.PersistentFlags().Lookup("certDir"))
+	casePW = GetKeysCmd.PersistentFlags().
+		String("casePW", "", "Master password you created for all keys")
+	viper.BindPFlag("keys.casePW", GetKeysCmd.PersistentFlags().Lookup("casePW"))
 }

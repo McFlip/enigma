@@ -1,2 +1,10 @@
 keys:
-  p12Dir: "lulz wtf?"
+  p12Dir: "Drop the p12 files you got from the Registration Authority here"
+  keysDir: "Output of GetKeys, Input of Decipher. The actual keys extracted from the p12 containers."
+  certDir: "Output of GetKeys, Input of Decipher. Custodian public certificates extracted from the p12 containers."
+  casePW: "Password you create to store the extracted keys. All keys will use this PW. Create a *STRONG* pw and save using a pw manager."
+  p12PWs:
+    - filename: "1st p12 file name"
+      password: "password for 1st p12 file"
+    - filename: "2nd p12 file name"
+      password: "password for 2nd p12 file"

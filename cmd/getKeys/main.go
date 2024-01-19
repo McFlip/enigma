@@ -3,7 +3,7 @@
 // doesn't allow for marshalling with a password.
 // For security, we won't store private keys to disk in plain text.
 
-package main
+package getkeys
 
 import (
 	"crypto/rsa"
@@ -16,16 +16,17 @@ import (
 	"software.sslmate.com/src/go-pkcs12"
 )
 
-func main() {
-	if len(os.Args) != 6 {
-		log.Fatal("Usage: getKey inP12 inPW outPW outKeyDir outCertDir")
-	}
-	inP12 := os.Args[1]
-	inPW := os.Args[2]
-	outPW := os.Args[3]
-	outKeyDir := os.Args[4]
-	outCertDir := os.Args[5]
+type FnamePW struct {
+	filename, password string
+}
 
+func GetKeys(p12Files []FnamePW, outPW, outKeyDir, outCertDir string) {
+	for _, f := range p12Files {
+		getSingleKey(f.filename, f.password, outPW, outKeyDir, outCertDir)
+	}
+}
+
+func getSingleKey(inP12, inPW, outPW, outKeyDir, outCertDir string) {
 	p12Bs, err := os.ReadFile(inP12)
 	if err != nil {
 		log.Fatal("Can't open p12 file")
