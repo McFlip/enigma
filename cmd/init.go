@@ -46,7 +46,7 @@ var initCmd = &cobra.Command{
 		if err := os.Mkdir("keys", 0774); err != nil {
 			log.Fatal("unable to mkdir keys: ", err)
 		}
-		if err := os.Mkdir("cert", 0774); err != nil {
+		if err := os.Mkdir("certs", 0774); err != nil {
 			log.Fatal("unable to mkdir cert: ", err)
 		}
 		if err := os.Mkdir("signed", 0774); err != nil {

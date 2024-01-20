@@ -51,7 +51,7 @@ to quickly create a Cobra application.`,
 		viper.SetDefault("keys.keysDir", "keys")
 		*keysDir = viper.GetString("keys.keysDir")
 		fmt.Println("keysDir:", *keysDir)
-		viper.SetDefault("keys.certDir", "cert")
+		viper.SetDefault("keys.certDir", "certs")
 		*certDir = viper.GetString("keys.certDir")
 		fmt.Println("certDir:", *certDir)
 		*casePW = viper.GetString("keys.casePW")
