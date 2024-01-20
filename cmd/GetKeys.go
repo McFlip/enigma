@@ -48,14 +48,16 @@ to quickly create a Cobra application.`,
 		viper.SetDefault("keys.p12Dir", "p12")
 		*p12Dir = viper.GetString("keys.p12Dir")
 		fmt.Println("p12:", *p12Dir)
-		viper.SetDefault("keys.keysDir", "keysDir")
+		viper.SetDefault("keys.keysDir", "keys")
 		*keysDir = viper.GetString("keys.keysDir")
 		fmt.Println("keysDir:", *keysDir)
-		viper.SetDefault("keys.certDir", "certDir")
+		viper.SetDefault("keys.certDir", "cert")
 		*certDir = viper.GetString("keys.certDir")
 		fmt.Println("certDir:", *certDir)
-		viper.SetDefault("keys.casePW", "casePW")
 		*casePW = viper.GetString("keys.casePW")
+		if casePW == nil {
+			log.Fatal("Case password not configured!")
+		}
 		fmt.Println("casePW:", *casePW)
 
 		// unmarshall p12 filename-pw array
