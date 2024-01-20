@@ -17,12 +17,12 @@ import (
 )
 
 type FnamePW struct {
-	filename, password string
+	Filename, Password string
 }
 
 func GetKeys(p12Files []FnamePW, outPW, outKeyDir, outCertDir string) {
 	for _, f := range p12Files {
-		getSingleKey(f.filename, f.password, outPW, outKeyDir, outCertDir)
+		getSingleKey(f.Filename, f.Password, outPW, outKeyDir, outCertDir)
 	}
 }
 
