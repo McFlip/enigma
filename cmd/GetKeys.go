@@ -21,8 +21,8 @@ THE SOFTWARE.
 */package cmd
 
 import (
-	"fmt"
 	"log"
+	"path/filepath"
 
 	// "github.com/McFlip/enigma/getkeys"
 
@@ -44,28 +44,29 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("GetKeys called")
 		viper.SetDefault("keys.p12Dir", "p12")
 		*p12Dir = viper.GetString("keys.p12Dir")
-		fmt.Println("p12:", *p12Dir)
 		viper.SetDefault("keys.keysDir", "keys")
 		*keysDir = viper.GetString("keys.keysDir")
-		fmt.Println("keysDir:", *keysDir)
 		viper.SetDefault("keys.certDir", "certs")
 		*certDir = viper.GetString("keys.certDir")
-		fmt.Println("certDir:", *certDir)
 		*casePW = viper.GetString("keys.casePW")
 		if casePW == nil {
 			log.Fatal("Case password not configured!")
 		}
-		fmt.Println("casePW:", *casePW)
 
 		// unmarshall p12 filename-pw array
 		var p12 p12Slc
 		if err := viper.UnmarshalKey("keys.p12PWs", &p12); err != nil {
 			log.Fatal("Failed to unmarshall p12 passwords: ", err)
 		}
-		fmt.Println("p12PWs: ", p12)
+
+		// form p12 paths
+		for i, p := range p12 {
+			p12[i].Filename = filepath.Join(*p12Dir, p.Filename)
+		}
+
+		getkeys.GetKeys(p12, *casePW, *keysDir, *certDir)
 	},
 }
 
