@@ -62,7 +62,19 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *[]str
 		attachments: hasAttach,
 		err:         errStr,
 	}
-	msgErrStr := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", msgErr.target, msgErr.from, msgErr.to, msgErr.cc, msgErr.bcc, msgErr.subj, msgErr.date, msgErr.messageId, msgErr.attachments, msgErr.err)
+	msgErrStr := fmt.Sprintf(
+		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		msgErr.target,
+		msgErr.from,
+		msgErr.to,
+		msgErr.cc,
+		msgErr.bcc,
+		msgErr.subj,
+		msgErr.date,
+		msgErr.messageId,
+		msgErr.attachments,
+		msgErr.err,
+	)
 	*errLog = append(*errLog, msgErrStr)
 	return nil
 }
@@ -70,7 +82,9 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *[]str
 func main() {
 	if len(os.Args) != 6 {
 		fmt.Println("Usage: decipher inPstDir inKeyDir inPW outDir")
-		fmt.Println("<inPstDir>: source directory of input PSTs containing encrypted email (Cypher Text)")
+		fmt.Println(
+			"<inPstDir>: source directory of input PSTs containing encrypted email (Cypher Text)",
+		)
 		fmt.Println(("<inCertDir>: source directory of encryption certs"))
 		fmt.Println("<inKeyDir>: source directory of input PKCS8 keys")
 		fmt.Println("<inPW>: the password you set as the outPW in getKeys")
@@ -83,9 +97,15 @@ func main() {
 	inPW := os.Args[4]
 	outDir := os.Args[5]
 	corruptExceptions := []string{"PST File\tError\n"}
-	decipherExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
-	decipherSuccess := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
-	ptExceptions := []string{"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n"}
+	decipherExceptions := []string{
+		"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n",
+	}
+	decipherSuccess := []string{
+		"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n",
+	}
+	ptExceptions := []string{
+		"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n",
+	}
 
 	// get list of pst pstFiles to process
 	pstFiles := []string{}
@@ -163,7 +183,12 @@ func main() {
 			continue
 		}
 		if foundCT {
+			// output files are auto numbered .eml files
 			fullPath := filepath.Join(outDir, fmt.Sprint(fileNum)+".eml")
+			for _, err := os.Stat(fullPath); err == nil; _, err = os.Stat(fullPath) {
+				fileNum++
+				fullPath = filepath.Join(outDir, fmt.Sprint(fileNum)+".eml")
+			}
 			fileNum++
 			err = os.WriteFile(fullPath, pt, 0666)
 			if err != nil {
