@@ -58,16 +58,17 @@ var initCmd = &cobra.Command{
 		if err := os.Mkdir("pt", 0774); err != nil {
 			log.Fatal("unable to mkdir pt: ", err)
 		}
-		exampleCfg := `keys:
-  p12Dir: "Drop the p12 files you got from the Registration Authority here"
-  keysDir: "Output of GetKeys, Input of Decipher. The actual keys extracted from the p12 containers."
-  certDir: "Output of GetKeys, Input of Decipher. Custodian public certificates extracted from the p12 containers."
-  casePW: "Password you create to store the extracted keys. All keys will use this PW. Create a *STRONG* pw and save using a pw manager."
+		exampleCfg := `
+keys:
+  p12Dir: "p12" #Drop the p12 files you got from the Registration Authority here
+  keysDir: "keys" #Output of GetKeys, Input of Decipher. The actual keys extracted from the p12 containers.
+  certDir: "certs" #Output of GetKeys, Input of Decipher. Custodian public certificates extracted from the p12 containers.
+  casePW: "" #Password you create to store the extracted keys. All keys will use this PW. Create a *STRONG* pw and save using a pw manager.
   p12PWs:
-    - filename: "1st p12 file name"
-      password: "password for 1st p12 file"
-    - filename: "2nd p12 file name"
-      password: "password for 2nd p12 file"
+    - filename: "alice.p12" #1st p12 file name
+      password: "P@ssw0rd" #password for 1st p12 file
+    - filename: "bob.p12" #2nd p12 file name
+      password: "S3cr3tSquirel" #password for 2nd p12 file
 `
 		if err := os.WriteFile("config.example.yaml", []byte(exampleCfg), 0664); err != nil {
 			log.Fatal("unable to create config file: ", err)

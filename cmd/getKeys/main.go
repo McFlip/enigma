@@ -29,28 +29,28 @@ func GetKeys(p12Files []FnamePW, outPW, outKeyDir, outCertDir string) {
 func getSingleKey(inP12, inPW, outPW, outKeyDir, outCertDir string) {
 	p12Bs, err := os.ReadFile(inP12)
 	if err != nil {
-		log.Fatal("Can't open p12 file")
+		log.Fatal("Can't open p12 file: ", inP12)
 	}
 	key, cert, err := pkcs12.Decode(p12Bs, inPW)
 	if err != nil {
-		log.Fatal("Can't decode p12")
+		log.Fatal("Can't decode p12: ", inP12)
 	}
 	err = key.(*rsa.PrivateKey).Validate()
 	if err != nil {
-		log.Fatal("Key invalid")
+		log.Fatal("Key invalid: ", inP12)
 	}
 	keyBs, err := pkcs8.ConvertPrivateKeyToPKCS8(key, []byte(outPW))
 	if err != nil {
-		log.Fatal("Can't convert key to PKCS8")
+		log.Fatal("Can't convert key to PKCS8: ", inP12)
 	}
 	serial := fmt.Sprintf("%x", cert.SerialNumber)
-	fmt.Println(serial)
+	fmt.Println(inP12, ": ", serial)
 	err = os.WriteFile(filepath.Join(outKeyDir, serial+".key"), keyBs, 0550)
 	if err != nil {
-		log.Fatal("Can't save key to outDir")
+		log.Fatal("Can't save key to outDir: ", serial, " from ", inP12)
 	}
 	err = os.WriteFile(filepath.Join(outCertDir, serial+".cert"), cert.Raw, 0550)
 	if err != nil {
-		log.Fatal("Can't save cert to outDir")
+		log.Fatal("Can't save cert to outDir: ", serial, " from ", inP12)
 	}
 }
