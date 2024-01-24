@@ -21,9 +21,14 @@ THE SOFTWARE.
 */package cmd
 
 import (
-	"fmt"
+	"bytes"
+	"io/fs"
 	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
 
+	"github.com/McFlip/enigma/cmd/decipher"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -41,24 +46,87 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("decipher called")
 		viper.SetDefault("decipher.ct", "ct")
 		*ct = viper.GetString("decipher.ct")
-		fmt.Println("ct: ", *ct)
 		viper.SetDefault("decipher.pt", "pt")
 		*pt = viper.GetString("decipher.pt")
-		fmt.Println("pt: ", *pt)
 		viper.SetDefault("keys.keysDir", "keys")
 		*keysDir = viper.GetString("keys.keysDir")
-		fmt.Println("keysDir: ", *keysDir)
 		viper.SetDefault("keys.certDir", "certs")
 		*certDir = viper.GetString("keys.certDir")
-		fmt.Println("certDir: ", *certDir)
 		*casePW = viper.GetString("keys.casePW")
 		if casePW == nil || *casePW == "" {
 			log.Fatal("Case password not configured!")
 		}
-		fmt.Println("pw: ", *casePW)
+
+		// for each custodian, unpack each pst and decipher
+		const unpack = "/mnt/ramdisk/unpack"
+		var outDir, numProcs string
+		nproc := exec.Command("nproc")
+		var out bytes.Buffer
+		nproc.Stdout = &out
+		err := nproc.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
+		numProcs = out.String()
+		filepath.Walk(*ct, func(path string, info fs.FileInfo, err error) error {
+			if err != nil {
+				log.Fatal(err)
+			}
+			readpstArgs := []string{
+				"-D", "-o", unpack, "-t", "e", "-e", "-j", numProcs,
+			}
+			if info.IsDir() {
+				base := filepath.Base(path)
+				if base == *ct {
+					return nil
+				}
+				outDir = filepath.Join(*pt, base)
+				err := os.Mkdir(outDir, 0666)
+				if err != nil {
+					log.Fatal(
+						"Error making custodian subfolder in pt outpath ",
+						outDir,
+						" err: ",
+						err,
+					)
+				}
+				err = os.Mkdir(filepath.Join(outDir, "logs"), 0666)
+				if err != nil {
+					log.Fatal(
+						"Error making custodian log subfolder in pt outpath ",
+						outDir,
+						" err: ",
+						err,
+					)
+				}
+			} else {
+				if filepath.Ext(info.Name()) != ".pst" {
+					log.Fatal("ciphertext input must be pst files")
+				}
+				err := removeContents(unpack)
+				if err != nil {
+					log.Fatal("Error cleaning out unpack dir ", err)
+				}
+				readpstArgs = append(readpstArgs, path)
+				log.Println("unpacking PST file")
+				readpst := exec.Command("readpst", readpstArgs...)
+				err = readpst.Run()
+				if err != nil {
+					log.Fatal("Error in readpst: ", err)
+				}
+				log.Println("finished unpacking")
+				log.Println("Processing ", info.Name(), " ...stand by...")
+				decipher.Decipher(unpack, *certDir, *keysDir, *casePW, outDir)
+				err = removeContents(unpack)
+				if err != nil {
+					log.Fatal("Error cleaning out unpack dir ", err)
+				}
+			}
+			return nil
+		})
+		log.Println("DONE!")
 	},
 }
 
@@ -71,4 +139,23 @@ func init() {
 		String("pt", "", "Dir for output plaintext. There will be a subfolder for each custodian and a log folder under that.")
 	keysDir = decipherCmd.PersistentFlags().String("keysDir", "", "keys for decryption")
 	viper.BindPFlag("decipher.pt", decipherCmd.PersistentFlags().Lookup("pt"))
+}
+
+func removeContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

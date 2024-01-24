@@ -1,5 +1,5 @@
 // deciphers byteslice using a cert/key from the given keyring
-package main
+package decipher
 
 import (
 	"errors"

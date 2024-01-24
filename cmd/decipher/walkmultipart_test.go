@@ -1,4 +1,4 @@
-package main
+package decipher
 
 import (
 	"crypto/x509"
@@ -12,7 +12,9 @@ func TestPlainMsgBody(t *testing.T) {
 	const expected = "This is just a plain single-part body."
 	msg := []byte(expected)
 	certKeyPairs := []certKeyPair{}
-	certBytes, err := os.ReadFile("../testdata/certIn/12c3905b55296e401270c0ceb18b5ba660db9a1f.cert")
+	certBytes, err := os.ReadFile(
+		"../testdata/certIn/12c3905b55296e401270c0ceb18b5ba660db9a1f.cert",
+	)
 	if err != nil {
 		t.Error(err)
 	}

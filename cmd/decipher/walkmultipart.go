@@ -1,5 +1,5 @@
 // recursive func for handling nested encrypted emails
-package main
+package decipher
 
 import (
 	"bytes"
@@ -47,7 +47,8 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, foundCT *bool
 			Content-Type: application/pkcs7-mime; smime-type=enveloped-data; name="smime.p7m"
 			Content-Disposition: attachment; filename="smime.p7m"
 		*/
-		if unwrapEnvelope && (key == "Content-Transfer-Encoding" || key == "X-Ms-Has-Attach" || key == "Content-Disposition" || key == "Content-Type") {
+		if unwrapEnvelope &&
+			(key == "Content-Transfer-Encoding" || key == "X-Ms-Has-Attach" || key == "Content-Disposition" || key == "Content-Type") {
 			continue
 		}
 		headerElemnent := fmt.Sprintf("%s: %s\n", key, strings.Join(values, "\n    "))
