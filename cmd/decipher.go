@@ -21,21 +21,18 @@ THE SOFTWARE.
 */package cmd
 
 import (
+	"fmt"
 	"log"
-	"path/filepath"
 
-	// "github.com/McFlip/enigma/getkeys"
-
-	getkeys "github.com/McFlip/enigma/cmd/getKeys"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-type p12Slc []getkeys.FnamePW
+var ct, pt *string
 
-// GetKeysCmd represents the GetKeys command
-var GetKeysCmd = &cobra.Command{
-	Use:   "GetKeys",
+// decipherCmd represents the decipher command
+var decipherCmd = &cobra.Command{
+	Use:   "decipher",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -44,46 +41,34 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		viper.SetDefault("keys.p12Dir", "p12")
-		*p12Dir = viper.GetString("keys.p12Dir")
+		fmt.Println("decipher called")
+		viper.SetDefault("decipher.ct", "ct")
+		*ct = viper.GetString("decipher.ct")
+		fmt.Println("ct: ", *ct)
+		viper.SetDefault("decipher.pt", "pt")
+		*pt = viper.GetString("decipher.pt")
+		fmt.Println("pt: ", *pt)
 		viper.SetDefault("keys.keysDir", "keys")
 		*keysDir = viper.GetString("keys.keysDir")
+		fmt.Println("keysDir: ", *keysDir)
 		viper.SetDefault("keys.certDir", "certs")
 		*certDir = viper.GetString("keys.certDir")
+		fmt.Println("certDir: ", *certDir)
 		*casePW = viper.GetString("keys.casePW")
 		if casePW == nil || *casePW == "" {
 			log.Fatal("Case password not configured!")
 		}
-
-		// unmarshall p12 filename-pw array
-		var p12 p12Slc
-		if err := viper.UnmarshalKey("keys.p12PWs", &p12); err != nil {
-			log.Fatal("Failed to unmarshall p12 passwords: ", err)
-		}
-
-		// form p12 paths
-		for i, p := range p12 {
-			p12[i].Filename = filepath.Join(*p12Dir, p.Filename)
-		}
-
-		getkeys.GetKeys(p12, *casePW, *keysDir, *certDir)
+		fmt.Println("pw: ", *casePW)
 	},
 }
 
-var p12Dir, keysDir, certDir, casePW *string
-
 func init() {
-	rootCmd.AddCommand(GetKeysCmd)
-
-	p12Dir = GetKeysCmd.PersistentFlags().
-		String("p12Dir", "", "Dir containing p12 files from the RA/CA")
-	viper.BindPFlag("keys.p12Dir", GetKeysCmd.PersistentFlags().Lookup("p12Dir"))
-	keysDir = GetKeysCmd.PersistentFlags().String("keysDir", "", "Output dir for extracted keys")
-	viper.BindPFlag("keys.keysDir", GetKeysCmd.PersistentFlags().Lookup("keysDir"))
-	certDir = GetKeysCmd.PersistentFlags().
-		String("certDir", "", "Output dir for extracted certificates")
-	viper.BindPFlag("keys.certDir", GetKeysCmd.PersistentFlags().Lookup("certDir"))
-	casePW = GetKeysCmd.PersistentFlags().
-		String("casePW", "", "Master password you created for all keys")
-	viper.BindPFlag("keys.casePW", GetKeysCmd.PersistentFlags().Lookup("casePW"))
+	rootCmd.AddCommand(decipherCmd)
+	ct = decipherCmd.PersistentFlags().
+		String("ct", "", "Dir containing ciphertext emails. Make a subfolder for each custodian under this.")
+	viper.BindPFlag("decipher.ct", decipherCmd.PersistentFlags().Lookup("ct"))
+	pt = decipherCmd.PersistentFlags().
+		String("pt", "", "Dir for output plaintext. There will be a subfolder for each custodian and a log folder under that.")
+	keysDir = decipherCmd.PersistentFlags().String("keysDir", "", "keys for decryption")
+	viper.BindPFlag("decipher.pt", decipherCmd.PersistentFlags().Lookup("pt"))
 }
