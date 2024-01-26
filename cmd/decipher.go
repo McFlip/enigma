@@ -21,7 +21,6 @@ THE SOFTWARE.
 */package cmd
 
 import (
-	"bytes"
 	"io/fs"
 	"log"
 	"os"
@@ -62,14 +61,15 @@ to quickly create a Cobra application.`,
 		// for each custodian, unpack each pst and decipher
 		const unpack = "/mnt/ramdisk/unpack"
 		var outDir, numProcs string
-		nproc := exec.Command("nproc")
-		var out bytes.Buffer
-		nproc.Stdout = &out
-		err := nproc.Run()
-		if err != nil {
-			log.Fatal(err)
-		}
-		numProcs = out.String()
+		numProcs = "0"
+		// nproc := exec.Command("nproc")
+		// var out bytes.Buffer
+		// nproc.Stdout = &out
+		// err := nproc.Run()
+		// if err != nil {
+		// 	log.Fatal(err)
+		// }
+		// numProcs = out.String()
 		filepath.Walk(*ct, func(path string, info fs.FileInfo, err error) error {
 			if err != nil {
 				log.Fatal(err)
