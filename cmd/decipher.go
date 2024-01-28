@@ -32,7 +32,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var ct, pt *string
+var (
+	ct, pt *string
+	eml    *bool
+)
 
 // decipherCmd represents the decipher command
 var decipherCmd = &cobra.Command{
@@ -57,6 +60,8 @@ to quickly create a Cobra application.`,
 		if casePW == nil || *casePW == "" {
 			log.Fatal("Case password not configured!")
 		}
+		viper.SetDefault("decipher.eml", false)
+		*eml = viper.GetBool("decipher.eml")
 
 		// for each custodian, unpack each pst and decipher
 		const unpack = "/mnt/ramdisk/unpack"
@@ -83,7 +88,7 @@ to quickly create a Cobra application.`,
 					return nil
 				}
 				outDir = filepath.Join(*pt, base)
-				err := os.Mkdir(outDir, 0666)
+				err := os.Mkdir(outDir, 0755)
 				if err != nil {
 					log.Fatal(
 						"Error making custodian subfolder in pt outpath ",
@@ -92,7 +97,7 @@ to quickly create a Cobra application.`,
 						err,
 					)
 				}
-				err = os.Mkdir(filepath.Join(outDir, "logs"), 0666)
+				err = os.Mkdir(filepath.Join(outDir, "logs"), 0755)
 				if err != nil {
 					log.Fatal(
 						"Error making custodian log subfolder in pt outpath ",
@@ -102,6 +107,11 @@ to quickly create a Cobra application.`,
 					)
 				}
 			} else {
+				if *eml {
+					log.Println("Processing .eml files")
+					decipher.Decipher(*ct, *certDir, *keysDir, *casePW, outDir)
+					return filepath.SkipDir
+				}
 				if filepath.Ext(info.Name()) != ".pst" {
 					log.Fatal("ciphertext input must be pst files")
 				}
@@ -137,8 +147,13 @@ func init() {
 	viper.BindPFlag("decipher.ct", decipherCmd.PersistentFlags().Lookup("ct"))
 	pt = decipherCmd.PersistentFlags().
 		String("pt", "", "Dir for output plaintext. There will be a subfolder for each custodian and a log folder under that.")
-	keysDir = decipherCmd.PersistentFlags().String("keysDir", "", "keys for decryption")
 	viper.BindPFlag("decipher.pt", decipherCmd.PersistentFlags().Lookup("pt"))
+	keysDir = decipherCmd.PersistentFlags().String("keysDir", "", "keys for decryption")
+	viper.BindPFlag("keys.keysDir", decipherCmd.PersistentFlags().Lookup("keysDir"))
+	certDir = decipherCmd.PersistentFlags().String("certDir", "", "certificates for decryption")
+	viper.BindPFlag("keys.certDir", decipherCmd.PersistentFlags().Lookup("certDir"))
+	eml = decipherCmd.PersistentFlags().Bool("eml", false, "switches input from PST to eml")
+	viper.BindPFlag("decipher.eml", decipherCmd.PersistentFlags().Lookup("eml"))
 }
 
 func removeContents(dir string) error {
