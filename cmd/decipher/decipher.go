@@ -4,7 +4,8 @@ package decipher
 import (
 	"errors"
 
-	"go.mozilla.org/pkcs7"
+	// "go.mozilla.org/pkcs7"
+	"github.com/smallstep/pkcs7"
 )
 
 func decipher(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, error) {
@@ -13,17 +14,15 @@ func decipher(attachBytes []byte, certKeyPairs []certKeyPair) ([]byte, error) {
 		return nil, err
 	}
 	var pt []byte
-	for i, certKeyPair := range certKeyPairs {
+	for _, certKeyPair := range certKeyPairs {
 		pt, err = p7m.Decrypt(certKeyPair.cert, certKeyPair.privKey)
 		// opague-signed case
 		if errors.Is(err, pkcs7.ErrNotEncryptedContent) {
 			return p7m.Content, nil
 		}
-		if err != nil {
-			if i == len(certKeyPairs)-1 {
-				return nil, err
-			}
+		if err == nil {
+			return pt, nil
 		}
 	}
-	return pt, nil
+	return nil, err
 }

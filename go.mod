@@ -6,8 +6,10 @@ require (
 	github.com/emersion/go-message v0.16.0
 	github.com/mooijtech/go-pst/v6 v6.0.2
 	github.com/rotisserie/eris v0.5.4
+	github.com/smallstep/pkcs7 v0.0.0-20231107075624-be1870d87d13
+	github.com/spf13/cobra v1.8.0
+	github.com/spf13/viper v1.18.2
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a
-	go.mozilla.org/pkcs7 v0.0.0-20210826202110-33d05740a352
 	golang.org/x/text v0.14.0
 	software.sslmate.com/src/go-pkcs12 v0.2.1
 )
@@ -29,9 +31,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
-	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.18.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect

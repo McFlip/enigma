@@ -17,7 +17,8 @@ import (
 	"regexp"
 	"strings"
 
-	pkcs7 "go.mozilla.org/pkcs7"
+	// pkcs7 "go.mozilla.org/pkcs7"
+	pkcs7 "github.com/smallstep/pkcs7"
 
 	"golang.org/x/text/encoding"
 
