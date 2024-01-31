@@ -89,7 +89,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 	var corruptLog, decipherExceptLog, successLog, ptExceptLog *os.File
 
 	// logs corrupt input
-	corruptPath := filepath.Join(outDir, "logs", "corruptExceptions.csv")
+	corruptPath := filepath.Join(outDir, "logs", "corruptExceptions.tsv")
 	if _, err := os.Stat(corruptPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			corruptLog, err = os.OpenFile(corruptPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -108,7 +108,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 	defer corruptLog.Close()
 
 	// logs exceptions from decipher func such as no key
-	decipherExceptPath := filepath.Join(outDir, "logs", "decipherExceptions.csv")
+	decipherExceptPath := filepath.Join(outDir, "logs", "decipherExceptions.tsv")
 	if _, err := os.Stat(decipherExceptPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			decipherExceptLog, err = os.OpenFile(
@@ -136,7 +136,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 	defer decipherExceptLog.Close()
 
 	// logs successfuly deciphered plaintext
-	successPath := filepath.Join(outDir, "logs", "success.csv")
+	successPath := filepath.Join(outDir, "logs", "success.tsv")
 	if _, err := os.Stat(successPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			successLog, err = os.OpenFile(successPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
@@ -155,7 +155,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 	}
 	defer successLog.Close()
 
-	ptExceptPath := filepath.Join(outDir, "logs", "ptExceptions.csv")
+	ptExceptPath := filepath.Join(outDir, "logs", "ptExceptions.tsv")
 	if _, err := os.Stat(ptExceptPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			ptExceptLog, err = os.OpenFile(ptExceptPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
