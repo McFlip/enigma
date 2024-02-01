@@ -21,6 +21,7 @@ THE SOFTWARE.
 */package cmd
 
 import (
+	"bytes"
 	"io/fs"
 	"log"
 	"os"
@@ -33,8 +34,8 @@ import (
 )
 
 var (
-	ct, pt *string
-	eml    *bool
+	ct, pt        *string
+	eml, parallel *bool
 )
 
 // decipherCmd represents the decipher command
@@ -62,19 +63,30 @@ to quickly create a Cobra application.`,
 		}
 		viper.SetDefault("decipher.eml", false)
 		*eml = viper.GetBool("decipher.eml")
+		// https://github.com/pst-format/libpst/issues/7
+		// libpst v0.6.76(current release) has race condition.
+		// bug fixed in git main source
+		// flag to allow parallel jobs for readpst if using built-from-source version
+		viper.SetDefault("decipher.parallel", false)
+		*parallel = viper.GetBool("decipher.parallel")
 
 		// for each custodian, unpack each pst and decipher
 		const unpack = "/mnt/ramdisk/unpack"
 		var outDir, numProcs string
+
+		// set readpst to use 1 job per CPU core. 0 disables parallel processing.
 		numProcs = "0"
-		// nproc := exec.Command("nproc")
-		// var out bytes.Buffer
-		// nproc.Stdout = &out
-		// err := nproc.Run()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// numProcs = out.String()
+		if *parallel {
+			nproc := exec.Command("nproc")
+			var out bytes.Buffer
+			nproc.Stdout = &out
+			err := nproc.Run()
+			if err != nil {
+				log.Fatal(err)
+			}
+			numProcs = out.String()
+		}
+
 		filepath.Walk(*ct, func(path string, info fs.FileInfo, err error) error {
 			if err != nil {
 				log.Fatal(err)
@@ -154,6 +166,9 @@ func init() {
 	viper.BindPFlag("keys.certDir", decipherCmd.PersistentFlags().Lookup("certDir"))
 	eml = decipherCmd.PersistentFlags().Bool("eml", false, "switches input from PST to eml")
 	viper.BindPFlag("decipher.eml", decipherCmd.PersistentFlags().Lookup("eml"))
+	parallel = decipherCmd.PersistentFlags().
+		Bool("parallel", false, "enable parallel processing for readpst")
+	viper.BindPFlag("decipher.parallel", decipherCmd.PersistentFlags().Lookup("parallel"))
 }
 
 func removeContents(dir string) error {
