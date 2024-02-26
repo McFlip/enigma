@@ -24,8 +24,6 @@ import (
 	"log"
 	"path/filepath"
 
-	// "github.com/McFlip/enigma/getkeys"
-
 	getkeys "github.com/McFlip/enigma/cmd/getKeys"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,16 +31,16 @@ import (
 
 type p12Slc []getkeys.FnamePW
 
-// GetKeysCmd represents the GetKeys command
-var GetKeysCmd = &cobra.Command{
-	Use:   "GetKeys",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+// getkeysCmd represents the getkeys command
+var getkeysCmd = &cobra.Command{
+	Use:   "getkeys",
+	Short: "Get encryption keys from p12 container",
+	Long: `Get encryption keys from p12 container.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+  Enter filenames and passwords in the config.
+  Create a "master password" for all keys.
+  This pw will be used in the decipher step.
+  No keys should be stored in plain text.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		viper.SetDefault("keys.p12Dir", "p12")
 		*p12Dir = viper.GetString("keys.p12Dir")
@@ -73,17 +71,17 @@ to quickly create a Cobra application.`,
 var p12Dir, keysDir, certDir, casePW *string
 
 func init() {
-	rootCmd.AddCommand(GetKeysCmd)
+	rootCmd.AddCommand(getkeysCmd)
 
-	p12Dir = GetKeysCmd.PersistentFlags().
+	p12Dir = getkeysCmd.PersistentFlags().
 		String("p12Dir", "", "Dir containing p12 files from the RA/CA")
-	viper.BindPFlag("keys.p12Dir", GetKeysCmd.PersistentFlags().Lookup("p12Dir"))
-	keysDir = GetKeysCmd.PersistentFlags().String("keysDir", "", "Output dir for extracted keys")
-	viper.BindPFlag("keys.keysDir", GetKeysCmd.PersistentFlags().Lookup("keysDir"))
-	certDir = GetKeysCmd.PersistentFlags().
+	viper.BindPFlag("keys.p12Dir", getkeysCmd.PersistentFlags().Lookup("p12Dir"))
+	keysDir = getkeysCmd.PersistentFlags().String("keysDir", "", "Output dir for extracted keys")
+	viper.BindPFlag("keys.keysDir", getkeysCmd.PersistentFlags().Lookup("keysDir"))
+	certDir = getkeysCmd.PersistentFlags().
 		String("certDir", "", "Output dir for extracted certificates")
-	viper.BindPFlag("keys.certDir", GetKeysCmd.PersistentFlags().Lookup("certDir"))
-	casePW = GetKeysCmd.PersistentFlags().
+	viper.BindPFlag("keys.certDir", getkeysCmd.PersistentFlags().Lookup("certDir"))
+	casePW = getkeysCmd.PersistentFlags().
 		String("casePW", "", "Master password you created for all keys")
-	viper.BindPFlag("keys.casePW", GetKeysCmd.PersistentFlags().Lookup("casePW"))
+	viper.BindPFlag("keys.casePW", getkeysCmd.PersistentFlags().Lookup("casePW"))
 }
