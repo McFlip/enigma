@@ -39,7 +39,18 @@ var rootCmd = &cobra.Command{
   Enigma can do the following:
   1. Parse signed certificates to get information about custodians
   2. Extract encryption keys from p12 containers
-  3. Decipher encrypted email`,
+  3. Decipher encrypted email
+
+  Steps
+  1. mkdir mycasename; cd mycasename
+  2. enigma init
+  3. cp config.example.yaml config.yaml
+  4. vim config.yaml
+  5. cp myCert.p12 p12/
+  6. enigma getkeys
+  7. cp myCipherText.pst ct/
+  8. enigma decipher
+  9. tree pt`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
