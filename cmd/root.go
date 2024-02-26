@@ -33,13 +33,13 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "enigma",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Decipher encrypted emails in a PST archive.",
+	Long: `Decipher encrypted emails in a PST archive.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+  Enigma can do the following:
+  1. Parse signed certificates to get information about custodians
+  2. Extract encryption keys from p12 containers
+  3. Decipher encrypted email`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
