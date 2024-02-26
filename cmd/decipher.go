@@ -41,13 +41,11 @@ var (
 // decipherCmd represents the decipher command
 var decipherCmd = &cobra.Command{
 	Use:   "decipher",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Decipher encrypted emails in a batch of PST archives",
+	Long: `Decipher encrypted emails in a batch of PST archives.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+  Ensure you have configured the case and extracted all of your keys 1st.
+  Successfully deciphered emails will output RFC822 format emails as '.eml' files`,
 	Run: func(cmd *cobra.Command, args []string) {
 		viper.SetDefault("decipher.ct", "ct")
 		*ct = viper.GetString("decipher.ct")
