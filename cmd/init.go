@@ -49,8 +49,11 @@ var initCmd = &cobra.Command{
 		if err := os.Mkdir("certs", 0774); err != nil {
 			log.Fatal("unable to mkdir cert: ", err)
 		}
-		if err := os.Mkdir("signed", 0774); err != nil {
-			log.Fatal("unable to mkdir signed: ", err)
+		if err := os.Mkdir("signedPSTs", 0774); err != nil {
+			log.Fatal("unable to mkdir signedPSTs: ", err)
+		}
+		if err := os.Mkdir("custodianInfo", 0774); err != nil {
+			log.Fatal("unable to mkdir custodianInfo: ", err)
 		}
 		if err := os.Mkdir("ct", 0774); err != nil {
 			log.Fatal("unable to mkdir ct: ", err)
@@ -72,6 +75,9 @@ keys:
       password: "P@ssw0rd" #password for 1st p12 file
     - filename: "bob.p12" #2nd p12 file name
       password: "S3cr3tSquirel" #password for 2nd p12 file
+  signed:
+    pstDir: "signedPSTs" #Dir containing signed emails from custodians
+    custodianInfoDir: "custodianInfo" #Output of getSigs. A txt file will be written with custodian IDs.
 `
 		if err := os.WriteFile("config.example.yaml", []byte(exampleCfg), 0664); err != nil {
 			log.Fatal("unable to create config file: ", err)
