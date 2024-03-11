@@ -35,9 +35,10 @@ var initCmd = &cobra.Command{
 	Long: `  1. mkdir caseName
   2. cd caseName
   3. enigma init
-  4. cp config.example.yaml config.yaml
-  5. edit config.yaml
-  6. enigma someCommand`,
+  4. mkdir ct/custodianName
+  5. cp config.example.yaml config.yaml
+  6. edit config.yaml
+  7. enigma someCommand`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Scaffolding case folders and creating example config.")
 		if err := os.Mkdir("p12", 0774); err != nil {

@@ -44,13 +44,14 @@ var rootCmd = &cobra.Command{
   Steps
   1. mkdir mycasename; cd mycasename
   2. enigma init
-  3. cp config.example.yaml config.yaml
-  4. vim config.yaml
-  5. cp myCert.p12 p12/
-  6. enigma getkeys
-  7. cp myCipherText.pst ct/
-  8. enigma decipher
-  9. tree pt`,
+  3. mkdir ct/custodianName
+  4. cp config.example.yaml config.yaml
+  5. vim config.yaml
+  6. cp myCert.p12 p12/
+  7. enigma getkeys
+  8. cp myCipherText.pst ct/custodianName
+  9. enigma decipher
+  10. 7z a results.7z pt # or tar czf results.tar.gz pt`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

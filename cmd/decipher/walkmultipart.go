@@ -26,7 +26,7 @@ func walkMultipart(attachBytes []byte, certKeyPairs []certKeyPair, foundCT *bool
 	// Check if this is an encrypted msg and needs to be unwrapped
 	// If this is encrypted there will be only one attachment of pkcs7 content-type and will NOT contain an rfc822 msg
 	// isSigned checks the smime-type
-	envelopedRe := regexp.MustCompile(`filename="?smime\.p7m"?`)
+	envelopedRe := regexp.MustCompile(`filename\*?=.*smime\.p7m"?`)
 	rfc822Re := regexp.MustCompile("message/rfc822")
 	hasSmime := envelopedRe.MatchString(attachStr)
 	signedRegex := regexp.MustCompile(`smime-type=signed-data`)
