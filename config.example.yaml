@@ -1,0 +1,13 @@
+decipher:
+  ct: "ct" #Dir containing ciphertext emails. Make a subfolder for each custodian under this.
+  pt: "pt" #Dir for output plaintext. There will be a subfolder for each custodian and a log folder under that.
+keys:
+  p12Dir: "p12" #Drop the p12 files you got from the Registration Authority here
+  keysDir: "keys" #Output of GetKeys, Input of Decipher. The actual keys extracted from the p12 containers.
+  certDir: "certs" #Output of GetKeys, Input of Decipher. Custodian public certificates extracted from the p12 containers.
+  casePW: "" #Password you create to store the extracted keys. All keys will use this PW. Create a *STRONG* pw and save using a pw manager.
+  p12PWs:
+    - filename: "alice.p12" #1st p12 file name
+      password: "P@ssw0rd" #password for 1st p12 file
+    - filename: "bob.p12" #2nd p12 file name
+      password: "S3cr3tSquirel" #password for 2nd p12 file

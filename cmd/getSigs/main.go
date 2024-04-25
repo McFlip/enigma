@@ -1,5 +1,5 @@
 // Parse certificate info from signed emails. This info helps you fetch keys from escrow.
-package main
+package getsigs
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ import (
 	"regexp"
 	"strings"
 
-	pkcs7 "go.mozilla.org/pkcs7"
+	pkcs7 "github.com/smallstep/pkcs7"
 
 	"golang.org/x/text/encoding"
 
@@ -28,20 +28,7 @@ import (
 	charsets "github.com/emersion/go-message/charset"
 )
 
-func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("Usage: .\\getSigs.exe <inputDir> <outputDir>")
-		fmt.Println(
-			"<inputDir>: source directory of input PSTs containing signed emails sent by the custodians",
-		)
-		fmt.Println(
-			"<outputDir>: the file 'commonNames.txt' will be output here. It will contain common names which includes EDIPI #s.",
-		)
-		os.Exit(1)
-	}
-	inDir := os.Args[1]
-	outDir := os.Args[2]
-
+func GetSigs(inDir, outDir string) {
 	// get list of pst files to process
 	files := []string{}
 	err := filepath.Walk(inDir, func(path string, info fs.FileInfo, err error) error {
