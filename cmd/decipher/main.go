@@ -29,7 +29,13 @@ type msgException struct {
 	target, from, to, cc, bcc, subj, date, messageId, attachments, err string
 }
 
-func logMsgException(file string, msgBytes []byte, msgError error, errLog *os.File) error {
+func logMsgException(
+	file string,
+	msgBytes []byte,
+	msgError error,
+	errLog *os.File,
+	outFileName string,
+) error {
 	msg, err := mail.ReadMessage(bytes.NewReader(msgBytes))
 	if err != nil {
 		return err
@@ -43,6 +49,8 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *os.Fi
 	subj := header.Get("Subject")
 	msgDate := header.Get("Date")
 	msgId := header.Get("Message-ID")
+	// TODO: deciphered eml will need to search for part header "Content-Disposition: attachment"
+	// success log currently will always show "yes" for attachments field due to presence of original "smime.p7m" file attachment
 	hasAttach := header.Get("X-MS-Has-Attach")
 	var errStr string
 	if msgError == nil {
@@ -63,7 +71,7 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *os.Fi
 		err:         errStr,
 	}
 	msgErrStr := fmt.Sprintf(
-		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s",
 		msgErr.target,
 		msgErr.from,
 		msgErr.to,
@@ -75,10 +83,15 @@ func logMsgException(file string, msgBytes []byte, msgError error, errLog *os.Fi
 		msgErr.attachments,
 		msgErr.err,
 	)
+	// for success we add an extra column for the outFileName
+	if msgError == nil {
+		msgErrStr = fmt.Sprintf("%s\t%s", msgErrStr, outFileName)
+	}
+	msgErrStr += "\n"
 	// print success to screen
-	// if msgError == nil {
-	// 	fmt.Println(msgErrStr)
-	// }
+	if msgError == nil {
+		fmt.Println(msgErr.target)
+	}
 	errLog.WriteString(msgErrStr)
 	return nil
 }
@@ -144,7 +157,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 				log.Fatalf("Can't open log file %s to write results", successPath)
 			}
 			successLog.WriteString(
-				"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tError\n",
+				"Target\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tAttachments\tStatus\tOutput\n",
 			)
 		}
 	} else {
@@ -241,7 +254,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 		foundCT := false
 		pt, err := walkMultipart(msgFile, certKeyPairs, &foundCT)
 		if err != nil {
-			loggingErr := logMsgException(file, msgFile, err, decipherExceptLog)
+			loggingErr := logMsgException(file, msgFile, err, decipherExceptLog, "")
 			if loggingErr != nil {
 				// fmt.Printf("Error logging error for msg %s : %s\n", file, loggingErr)
 				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
@@ -261,7 +274,13 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 			if err != nil {
 				fmt.Printf("Error writing out deciphered file %s : %s\n", file, err)
 			}
-			loggingErr := logMsgException(file, msgFile, nil, successLog)
+			loggingErr := logMsgException(
+				file,
+				msgFile,
+				nil,
+				successLog,
+				fmt.Sprintf("%d.eml", fileNum-1),
+			)
 			if loggingErr != nil {
 				// fmt.Printf("Error logging success for %s : %s\n", file, loggingErr)
 				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
@@ -269,7 +288,7 @@ func Decipher(inPstDir, inCertDir, inKeyDir, inPW, outDir string) {
 			}
 		} else {
 			// either the input file was plaintext or corrupt and missing smime.p7m attachment
-			loggingErr := logMsgException(file, msgFile, errors.New("plaintext input"), ptExceptLog)
+			loggingErr := logMsgException(file, msgFile, errors.New("plaintext input"), ptExceptLog, "")
 			if loggingErr != nil {
 				// fmt.Printf("Error logging plaintext msg %s : %s\n", file, loggingErr)
 				corruptException := fmt.Sprintf("%s\t%s\n", file, loggingErr)
