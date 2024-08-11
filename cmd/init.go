@@ -62,6 +62,12 @@ var initCmd = &cobra.Command{
 		if err := os.Mkdir("pt", 0774); err != nil {
 			log.Fatal("unable to mkdir pt: ", err)
 		}
+		if err := os.Mkdir("header_in", 0774); err != nil {
+			log.Fatal("unable to mkdir header_in: ", err)
+		}
+		if err := os.Mkdir("header_out", 0774); err != nil {
+			log.Fatal("unable to mkdir header_out: ", err)
+		}
 		exampleCfg := `
 decipher:
   ct: "ct" #Dir containing ciphertext emails. Make a subfolder for each custodian under this.
@@ -79,6 +85,9 @@ keys:
   signed:
     pstDir: "signedPSTs" #Dir containing signed emails from custodians
     custodianInfoDir: "custodianInfo" #Output of getSigs. A txt file will be written with custodian IDs.
+header:
+  header_in: "header_in" #Dir for input pst files for getheaders. Make a subfolder for each custodian under this.
+  header_out: "header_out" #Dir for for getheaders output logs. There will be a subfolder for each custodian.
 `
 		if err := os.WriteFile("config.example.yaml", []byte(exampleCfg), 0664); err != nil {
 			log.Fatal("unable to create config file: ", err)
