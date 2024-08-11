@@ -40,6 +40,7 @@ var rootCmd = &cobra.Command{
   1. Parse signed certificates to get information about custodians
   2. Extract encryption keys from p12 containers
   3. Decipher encrypted email
+  4. Parse metadata from message headers
 
   Steps
   1. mkdir mycasename; cd mycasename

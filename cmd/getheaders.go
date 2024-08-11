@@ -41,8 +41,6 @@ import (
 	charsets "github.com/emersion/go-message/charset"
 )
 
-var header_in, header_out *string
-
 // getheadersCmd represents the getheaders command
 var getheadersCmd = &cobra.Command{
 	Use:   "getheaders",
@@ -254,13 +252,15 @@ var getheadersCmd = &cobra.Command{
 	},
 }
 
+var header_in, header_out *string
+
 func init() {
 	rootCmd.AddCommand(getheadersCmd)
 
-	header_in = decipherCmd.PersistentFlags().
+	header_in = getheadersCmd.PersistentFlags().
 		String("header_in", "", "Dir containing pst files where you want to parse headers. Make a subfolder for each custodian under this.")
-	viper.BindPFlag("header.header_in", decipherCmd.PersistentFlags().Lookup("header_in"))
-	header_out = decipherCmd.PersistentFlags().
+	viper.BindPFlag("header.header_in", getheadersCmd.PersistentFlags().Lookup("header_in"))
+	header_out = getheadersCmd.PersistentFlags().
 		String("header_out", "", "Dir for output logs. There will be a subfolder for each custodian.")
-	viper.BindPFlag("header.header_out", decipherCmd.PersistentFlags().Lookup("header_out"))
+	viper.BindPFlag("header.header_out", getheadersCmd.PersistentFlags().Lookup("header_out"))
 }
