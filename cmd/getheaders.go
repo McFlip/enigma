@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	pst "github.com/mooijtech/go-pst/v6/pkg"
 	"github.com/mooijtech/go-pst/v6/pkg/properties"
@@ -109,7 +110,7 @@ var getheadersCmd = &cobra.Command{
 						}
 						// TSV header
 						logFile.WriteString(
-							"PstFile\tFolder\tFrom\tSenderName\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tHasAttachments\tIsEncrypted\tAttachmentFileNames\n",
+							"PstFile\tFolder\tFrom\tTo\tCC\tBCC\tSubj\tDate\tMessage-Id\tHasAttachments\tIsEncrypted\tAttachmentFileNames\n",
 						)
 					}
 				} else {
@@ -162,25 +163,39 @@ var getheadersCmd = &cobra.Command{
 					// Iterate through messages.
 					for messageIterator.Next() {
 						message := messageIterator.Value()
-						// TODO: replace WriteString with just Write directly to byteslice for performance
 						var b strings.Builder
 
 						// We only care about messages, not calendar items etc.
 						switch messageProperties := message.Properties.(type) {
 						case *properties.Message:
-							// fmt.Printf("DEBUG: %s\n", messageProperties.GetSubject())
-							b.WriteString(fmt.Sprintf("%s\t", info.Name()))
-							b.WriteString(fmt.Sprintf("%s\t", folder.Name))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetFrom()))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetSenderName()))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetDisplayTo()))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetDisplayCc()))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetDisplayBcc()))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetSubject()))
+							b.Write([]byte(info.Name()))
+							b.WriteRune('\t')
+							b.Write([]byte(folder.Name))
+							b.WriteRune('\t')
+							b.Write([]byte(messageProperties.GetSenderName()))
+							b.WriteRune('\t')
+							b.Write([]byte(messageProperties.GetDisplayTo()))
+							b.WriteRune('\t')
+							b.Write([]byte(messageProperties.GetDisplayCc()))
+							b.WriteRune('\t')
+							b.Write([]byte(messageProperties.GetDisplayBcc()))
+							b.WriteRune('\t')
+							// subject string has non-printable characters causing problems in Excel when opening csv
+							subject := messageProperties.GetSubject()
+							subject = strings.Map(func(r rune) rune {
+								if unicode.IsPrint(r) {
+									return r
+								}
+								return -1
+							}, subject)
+							b.Write([]byte(subject))
+							b.WriteRune('\t')
 							// Date is encoded as Unix nanosecond timestamp
 							timestamp := time.Unix(0, messageProperties.GetClientSubmitTime()).UTC()
-							b.WriteString(fmt.Sprintf("%s\t", timestamp.Format(time.UnixDate)))
-							b.WriteString(fmt.Sprintf("%s\t", messageProperties.GetInternetMessageId()))
+							b.Write([]byte(timestamp.Format(time.UnixDate)))
+							b.WriteRune('\t')
+							b.Write([]byte(messageProperties.GetInternetMessageId()))
+							b.WriteRune('\t')
 							hasAttach, _ := message.HasAttachments()
 							b.WriteString(fmt.Sprintf("%t\t", hasAttach))
 
@@ -205,10 +220,7 @@ var getheadersCmd = &cobra.Command{
 
 						if eris.Is(err, pst.ErrAttachmentsNotFound) {
 							// This message has no attachments.
-							// b.WriteRune('\t')
-							logEntry := b.String()
-							// fmt.Println(logEntry)
-							logFile.WriteString(logEntry)
+							logFile.WriteString(b.String())
 							continue
 						} else if err != nil {
 							return err
@@ -223,18 +235,15 @@ var getheadersCmd = &cobra.Command{
 							if attachmentName == "" {
 								attachmentName = fmt.Sprintf("UNKNOWN_%d", attachment.Identifier)
 							}
-							b.WriteString(fmt.Sprintf("%s;", attachmentName))
+							b.Write([]byte(attachmentName))
+							b.WriteRune(';')
 
 							if attachmentIterator.Err() != nil {
 								return attachmentIterator.Err()
 							}
 						}
 						b.WriteRune('\n')
-						logEntry := b.String()
-						// fmt.Printf("DEBUG: %s\n", logFile.Name())
-						logFile.WriteString(logEntry)
-						// fmt.Println(logFile.Sync())
-						// fmt.Println(logEntry)
+						logFile.WriteString(b.String())
 					}
 
 					return messageIterator.Err()
