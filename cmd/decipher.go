@@ -65,7 +65,7 @@ var decipherCmd = &cobra.Command{
 		// libpst v0.6.76(current release) has race condition.
 		// bug fixed in git main source
 		// flag to allow parallel jobs for readpst if using built-from-source version
-		viper.SetDefault("decipher.parallel", false)
+		viper.SetDefault("decipher.parallel", true)
 		*parallel = viper.GetBool("decipher.parallel")
 
 		// for each custodian, unpack each pst and decipher
