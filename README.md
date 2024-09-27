@@ -2,20 +2,33 @@
 
 ## Purpose
 
-eDiscovery tool for bulk decryption of emails in a batch of PST files, written in Go.
+eDiscovery tool for bulk decryption of emails in a batch of PST files or loose `.eml` files, written in Go.
 
 This project is a successor to [batch-decipher-pst](https://github.com/McFlip/batch-decipher-pst).
 
-This is a containerized command line tool.
+This is a containerized command line tool. However, using a container is only necessary if processing PST archives. I work on a Fedora system using Podman but Docker will work fine as well.
 
 ## Dependencies
 
-This depends on `readpst` from the `libpst` tools. The version used is compiled from the git repo source, as there are bug fixes that haven't made it into a release yet. 
+This depends on `readpst` from the `libpst` tools for unpacking PST archives. You don't need `readpst` if you aren't using PST files as input. The version used is compiled from the git repo source, as there are bug fixes that haven't made it into a release yet.
+
 See below for how to build `readpst`.
-I wanted to use `go-pst` but there is a an issue with `.msg` emails that are attached to other emails. Also, `go-pst` is not thread-safe.
+
+I wanted to use `go-pst` but there is an issue with `.msg` emails that are attached to other emails. Also, `go-pst` is not thread-safe.
 `go-pst` is used for the `getheaders` command, and `readpst` is not required for that command.
 
 ## Build
+
+### Native Executable
+
+If you don't need PST support, simply build the normal way for a Go project.
+Note: you can easily cross-compile in Go by setting the `GOOS` environment variable.
+
+```bash
+go build
+```
+
+### Container Build for Readpst
 
 First, build `readpst`.
 
@@ -45,7 +58,7 @@ getheaders
 ## Run
 
 If you have sufficient RAM available, mount a tmpfs to the path `/mnt/ramdisk/unpack`.
-This path is used by `readpst` as a temp workspace for unpacking PST files into text format for futher processing.
+This path is used by `readpst` as a temp workspace for unpacking PST files into text format for further processing.
 NOTE: This is only available on a Linux host.
 
 Change into your directory with your input files and mount to the path `/cases`.

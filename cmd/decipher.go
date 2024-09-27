@@ -162,10 +162,10 @@ func init() {
 	viper.BindPFlag("keys.keysDir", decipherCmd.PersistentFlags().Lookup("keysDir"))
 	certDir = decipherCmd.PersistentFlags().String("certDir", "", "certificates for decryption")
 	viper.BindPFlag("keys.certDir", decipherCmd.PersistentFlags().Lookup("certDir"))
-	eml = decipherCmd.PersistentFlags().Bool("eml", false, "switches input from PST to eml")
+	eml = decipherCmd.PersistentFlags().Bool("eml", true, "switches input from PST to eml")
 	viper.BindPFlag("decipher.eml", decipherCmd.PersistentFlags().Lookup("eml"))
 	parallel = decipherCmd.PersistentFlags().
-		Bool("parallel", false, "enable parallel processing for readpst")
+		Bool("parallel", true, "enable parallel processing for readpst")
 	viper.BindPFlag("decipher.parallel", decipherCmd.PersistentFlags().Lookup("parallel"))
 }
 

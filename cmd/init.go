@@ -72,7 +72,8 @@ var initCmd = &cobra.Command{
 decipher:
   ct: "ct" #Dir containing ciphertext emails. Make a subfolder for each custodian under this.
   pt: "pt" #Dir for output plaintext. There will be a subfolder for each custodian and a log folder under that.
-  parallel: true
+  parallel: true # use multithreading in readpst when unpacking PST files
+  eml: true # CT input will be loose .eml files instead of PST archives
 keys:
   p12Dir: "p12" #Drop the p12 files you got from the Registration Authority here
   keysDir: "keys" #Output of GetKeys, Input of Decipher. The actual keys extracted from the p12 containers.
